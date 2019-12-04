@@ -1,0 +1,118 @@
+body {
+	font: 20px/48px -apple-system, BlinkMacSystemFont, "HelveticaNeue-Light", "Helvetica Neue", "HelveticaNeue", Helvetica, Arial, sans-serif;
+	color: #272333;
+	background: #FFC819;
+	line-height: 140%;
+	text-align: center;
+}
+h1, p, #footer {
+	width: 624px;
+	margin-left: 192px;
+}
+h1 {
+	font-size: 48px;
+	line-height: 120%;
+	font-weight: bold;
+	padding: 0;
+	margin-top: 104px;
+	margin-bottom: 48px;
+}
+p, ul {
+	margin-bottom: 16px;
+}
+a {
+	color: #272333;
+	text-decoration: none;
+}
+a:hover {
+	text-decoration: none;
+}
+#wrapper {
+	width: 1008px;
+	margin: 80px auto 0 auto;
+	padding-bottom: 100px;
+}
+.companies {
+	margin: 80px 0;
+	overflow: hidden;
+	padding: 32px 24px;
+}
+.company_outer {
+	float: left;
+	width: 304px;
+	height: 200px;
+	background: rgba(0, 0, 0, 0.08);
+	margin: 8px;
+	border-radius: 6px;
+	box-shadow: 0 16px 32px rgba(39, 35, 51, 0.08);
+}
+.company_inner {
+	background-color: #ffffff;
+	width: 100%;
+	height: 199px;
+	border-radius: 6px;
+	box-shadow: 0 1px rgba(0, 0, 0, 0.08);
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+.company_inner.cachet {
+	background-image: url(../logos/cachet.svg);
+}
+.company_inner.procurement_flow {
+	background-image: url(../logos/procurement_flow.svg);
+}
+.company_inner.r8_tech {
+	background-image: url(../logos/r8_tech.svg);
+}
+.company_inner.digital_sputnik {
+	background-image: url(../logos/digital_sputnik.svg);
+}
+.company_inner.plus {
+	background-image: url(../icons/plus.svg);
+	background-color: #FFC819;
+}
+.links {
+	margin-left: 344px;
+	overflow: hidden;
+}
+li {
+	float: left;
+	width: 88px;
+	margin: 8px;
+}
+#footer {
+	font-size: 12px;
+	line-height: 24px;
+	letter-spacing: 3px;
+	text-transform: uppercase;
+	opacity: .4;
+	margin-top: 36px;
+
+@media (max-width: 576px) {
+	body {
+		font-size: 16px;
+	}
+	h1, p, #footer, .company_outer {
+		width: 88%;
+		margin-left: 6%;
+	}
+	h1 {
+		font-size: 36px;
+		margin-top: 40px;
+	}
+	#wrap {
+		width: 100%;
+		margin-top: 40px;
+	}
+	.companies {
+		margin: 40px 0;
+	}	
+	.links {
+		width: 66%;
+		margin-left: 17%;
+	}
+	li {
+		width: 33%;
+		margin: 8px 0;
+	}
+}
