@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.dashbird {
+	background-image: url(../logos/dashbird.svg);
+}
 .company_inner.cachet {
 	background-image: url(../logos/cachet.svg);
 }
