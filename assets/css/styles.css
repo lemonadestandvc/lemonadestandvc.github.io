@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.veriff {
+	background-image: url(../logos/veriff.svg);
+}
 .company_inner.dashbird {
 	background-image: url(../logos/dashbird.svg);
 }
