@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.montonio {
+	background-image: url(../logos/montonio.svg);
+}
 .company_inner.veriff {
 	background-image: url(../logos/veriff.svg);
 }
