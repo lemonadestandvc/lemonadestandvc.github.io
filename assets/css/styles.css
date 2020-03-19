@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.interactio {
+	background-image: url(../logos/interactio.png);
+}	
 .company_inner.outfunnel {
 	background-image: url(../logos/outfunnel.png);
 }
