@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.dagshub {
+	background-image: url(../logos/dagshub.svg);
+}
 .company_inner.remato {
 	background-image: url(../logos/remato.svg);
 }
