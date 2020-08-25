@@ -55,6 +55,8 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.sensus-septima {
+	background-image: url(../logos/sensus-septima.svg);
 .company_inner.webarx {
 	background-image: url(../logos/webarx.svg);
 }
