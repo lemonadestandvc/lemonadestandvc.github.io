@@ -61,6 +61,9 @@ a:hover {
 .company_inner.memgraph {
 	background-image: url(../logos/memgraph.svg);
 }
+.company_inner.fyma {
+	background-image: url(../logos/fyma.svg);
+}
 .company_inner.visory {
 	background-image: url(../logos/visory.svg);
 }
