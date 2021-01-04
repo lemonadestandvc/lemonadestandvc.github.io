@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.wowflow {
+	background-image: url(../logos/wowflow.svg);
+}
 .company_inner.drivex {
 	background-image: url(../logos/drivex.svg);
 }
