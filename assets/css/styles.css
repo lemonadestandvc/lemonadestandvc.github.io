@@ -55,6 +55,15 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.outvio {
+	background-image: url(../logos/outvio.svg);
+}
+.company_inner.fleetguru {
+	background-image: url(../logos/fleetguru.svg);
+}
+.company_inner.ender-turing {
+	background-image: url(../logos/ender-turing.svg);
+}
 .company_inner.barking {
 	background-image: url(../logos/barking.svg);
 }
