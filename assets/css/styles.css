@@ -56,6 +56,9 @@ a:hover {
 	background-repeat: no-repeat;
 }
 .company_inner.reverse-resources {
+	background-image: url(../logos/grunfin.svg);
+}
+.company_inner.reverse-resources {
 	background-image: url(../logos/reverse-resources.svg);
 }
 .company_inner.outvio {
