@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.dillali {
+	background-image: url(../logos/dillali.svg);
+}
 .company_inner.planet42 {
 	background-image: url(../logos/planet42.svg);
 }
