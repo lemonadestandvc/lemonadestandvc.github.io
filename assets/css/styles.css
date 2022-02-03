@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.solidworld{
+	background-image: url(../logos/solidworld.svg);
+}
 .company_inner.dillali {
 	background-image: url(../logos/dillali.svg);
 }
