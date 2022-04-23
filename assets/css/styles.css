@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.blackswan{
+	background-image: url(../logos/blackswan.svg);
+}
 .company_inner.kwota{
 	background-image: url(../logos/kwota.svg);
 }
