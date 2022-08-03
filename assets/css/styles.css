@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.deepflare{
+	background-image: url(../logos/deepflare.svg);
+}
 .company_inner.plural{
 	background-image: url(../logos/plural.svg);
 }
