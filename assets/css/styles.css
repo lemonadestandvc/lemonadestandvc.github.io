@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.ligence{
+	background-image: url(../logos/ligence.svg);
+}
 .company_inner.superface{
 	background-image: url(../logos/superface.svg);
 }
