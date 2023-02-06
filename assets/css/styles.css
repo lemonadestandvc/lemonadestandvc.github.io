@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.biomatter{
+	background-image: url(../logos/biomatter.svg);
+}
 .company_inner.fertifa{
 	background-image: url(../logos/fertifa.svg);
 }
