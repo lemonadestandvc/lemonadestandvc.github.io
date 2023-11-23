@@ -55,6 +55,10 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.silmai{
+	background-image: url(../logos/simlai.svg);
+}
+
 .company_inner.biomatter{
 	background-image: url(../logos/biomatter.svg);
 }
