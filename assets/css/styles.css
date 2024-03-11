@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.enzum{
+	background-image: url(../logos/enzum.svg);
+}
 .company_inner.simlai{
 	background-image: url(../logos/simlai.svg);
 }
