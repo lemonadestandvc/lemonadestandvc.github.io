@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.esgrid{
+	background-image: url(../logos/esgrid.svg);
+}
 .company_inner.krattworks{
 	background-image: url(../logos/krattworks.svg);
 }
