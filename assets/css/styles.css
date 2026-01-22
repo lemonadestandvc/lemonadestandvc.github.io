@@ -55,6 +55,9 @@ a:hover {
 	background-position: center center;
 	background-repeat: no-repeat;
 }
+.company_inner.roleo{
+	background-image: url(../logos/roleo.svg);
+}
 .company_inner.lendurai{
 	background-image: url(../logos/lendurai.svg);
 }
