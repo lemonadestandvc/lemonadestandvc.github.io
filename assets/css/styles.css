@@ -5,7 +5,7 @@ body {
 	line-height: 140%;
 	text-align: center;
 }
-h1, p, #footer {
+h1, h2, p, #footer {
 	width: 624px;
 	margin-left: 192px;
 }
@@ -16,6 +16,12 @@ h1 {
 	padding: 0;
 	margin-top: 104px;
 	margin-bottom: 48px;
+}
+h2 {
+	font-size: 28px;
+	font-weight: bold;
+	opacity: 0.5;
+	margin-bottom: 0;
 }
 p, ul {
 	margin-bottom: 16px;
@@ -240,7 +246,7 @@ li {
 }
 
 @media (max-width: 1024px) {
-	h1, p, #footer {
+	h1, h2, p, #footer {
 		width: 624px;
 		margin-left: 58px;
 	}
@@ -263,7 +269,7 @@ li {
 	body {
 		font-size: 16px;
 	}
-	h1, p, #footer, .company_outer {
+	h1, h2, p, #footer, .company_outer {
 		width: 88%;
 		margin-left: 6%;
 	}
