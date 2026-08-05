@@ -44,13 +44,14 @@ a:hover {
 	padding: 32px 24px;
 }
 .companies.alumni {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-start;
+	display: grid;
+	grid-template-columns: repeat(3, 304px);
+	gap: 16px;
 }
 .companies.alumni .company_outer,
 .companies.alumni .company_wrap {
 	float: none;
+	margin: 0;
 }
 .company_outer {
 	float: left;
@@ -294,6 +295,9 @@ li {
 	.company_inner {
 		height: 143px;
 	}
+	.companies.alumni {
+		grid-template-columns: repeat(3, 224px);
+	}
 	.links {
 		margin-left: 224px;
 	}
@@ -317,7 +321,10 @@ li {
 	}
 	.companies {
 		margin: 40px 0;
-	}	
+	}
+	.companies.alumni {
+		grid-template-columns: 1fr;
+	}
 	.links {
 		width: 66%;
 		margin-left: 17%;
