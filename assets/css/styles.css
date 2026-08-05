@@ -43,6 +43,15 @@ a:hover {
 	overflow: hidden;
 	padding: 32px 24px;
 }
+.companies.alumni {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+}
+.companies.alumni .company_outer,
+.companies.alumni .company_wrap {
+	float: none;
+}
 .company_outer {
 	float: left;
 	width: 304px;
@@ -60,6 +69,28 @@ a:hover {
 	box-shadow: 0 1px rgba(0, 0, 0, 0.08);
 	background-position: center center;
 	background-repeat: no-repeat;
+}
+.company_wrap {
+	float: left;
+	width: 304px;
+	margin: 8px;
+}
+.company_wrap .company_outer {
+	float: none;
+	width: auto;
+	margin: 0;
+}
+.exit_caption {
+	font-size: 13px;
+	line-height: 140%;
+	margin-top: 8px;
+	opacity: 0.6;
+}
+.exit_caption a {
+	text-decoration: underline;
+}
+.exit_caption a:hover {
+	opacity: 0.8;
 }
 .company_inner.roleo{
 	background-image: url(../logos/roleo.svg);
@@ -257,6 +288,9 @@ li {
 		width: 224px;
 		height: 144px;
 	}
+	.company_wrap {
+		width: 224px;
+	}
 	.company_inner {
 		height: 143px;
 	}
@@ -269,7 +303,7 @@ li {
 	body {
 		font-size: 16px;
 	}
-	h1, h2, p, #footer, .company_outer {
+	h1, h2, p, #footer, .company_outer, .company_wrap {
 		width: 88%;
 		margin-left: 6%;
 	}
