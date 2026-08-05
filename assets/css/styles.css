@@ -324,6 +324,7 @@ li {
 	}
 	.companies.alumni {
 		grid-template-columns: 1fr;
+		justify-items: center;
 	}
 	.links {
 		width: 66%;
