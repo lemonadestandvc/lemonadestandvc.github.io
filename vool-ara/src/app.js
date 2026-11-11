@@ -59,9 +59,10 @@ const MO = {
   11:{t:-1,dark:'poole nelja paiku', snow:true}
 };
 function stormDates(now){
-  let d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if(!MO[d.getMonth()]) d = new Date(d.getMonth() > 9 ? d.getFullYear() + 1 : d.getFullYear(), 10, 10);
-  while(d.getDay() !== 5) d.setDate(d.getDate() + 1);
+  const nextFri = x => { x = new Date(x); while(x.getDay() !== 5) x.setDate(x.getDate() + 1); return x; };
+  let d = nextFri(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+  // soojal ajal (ka siis, kui järgmine reede jääb juba maisse) toimub lugu novembris
+  if(!MO[d.getMonth()]) d = nextFri(new Date(d.getMonth() > 10 ? d.getFullYear() + 1 : d.getFullYear(), 10, 10));
   const out = [];
   for(let i = 0; i < 4; i++){ const x = new Date(d); x.setDate(d.getDate() + i); out.push(x); }
   return {list:out, mo:MO[out[0].getMonth()]};
@@ -673,7 +674,7 @@ function beginRun(st){
 
 /* ===== Olek ===== */
 let S;
-const DEF_FAM = {adults:2, baby:0, small:1, school:1, teen:0, dog:true, cat:false};
+const DEF_FAM = {adults:2, baby:0, small:1, school:1, teen:0, dog:false, cat:false};
 function loadSetup(){
   try{ const s = JSON.parse(localStorage.getItem('vool-setup3') || 'null'); if(s && s.fam && HOMES[s.home]) return s; }catch(e){}
   return {fam:Object.assign({}, DEF_FAM), home:'paneel', heat:'ei'};
@@ -937,9 +938,9 @@ function refocus(sel){ const b = document.querySelector(sel); if(b) b.focus({pre
 const A = {
   start(){ S.screen = 'setup'; render(); focusHeading(); },
   inc(d){ keep(() => { const row = STEP_ROWS.find(r => r[0] === d.k); S.fam[d.k] = Math.max(row[3], Math.min(row[4], S.fam[d.k] + (+d.d))); saveSetup(); }); refocus(`[data-a="inc"][data-k="${d.k}"][data-d="${d.d}"]`); },
-  pet(d){ keep(() => { S.fam[d.k] = !S.fam[d.k]; saveSetup(); }); },
-  home(d){ keep(() => { S.home = d.v; saveSetup(); }); },
-  heat(d){ keep(() => { S.heat = d.v; saveSetup(); }); },
+  pet(d){ keep(() => { S.fam[d.k] = !S.fam[d.k]; saveSetup(); }); refocus(`[data-a="pet"][data-k="${d.k}"]`); },
+  home(d){ keep(() => { S.home = d.v; saveSetup(); }); refocus(`[data-a="home"][data-v="${d.v}"]`); },
+  heat(d){ keep(() => { S.heat = d.v; saveSetup(); }); refocus(`[data-a="heat"][data-v="${d.v}"]`); },
   toSetup(){ S.screen = 'setup'; S.res = null; render(); focusHeading(); },
   toPrep(){ S.screen = 'prep'; render(); focusHeading(); },
   task(d){
