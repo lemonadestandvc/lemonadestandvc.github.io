@@ -1,0 +1,36 @@
+
+/* v3: ajaeelarve ja poeskäik */
+.budget{margin:18px 0 6px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--ink-2)}
+.budget .row1{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-weight:700}
+.budget .row1 b{font:800 26px var(--display);color:var(--lamp);font-variant-numeric:tabular-nums}
+.budget .tbar{height:8px;background:var(--ink-3);border-radius:4px;overflow:hidden;margin-top:8px}
+.budget .tbar i{display:block;height:100%;background:var(--lamp);transition:width .5s}
+.budget .tbar i.low{background:var(--ember)}
+.secth{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:26px 0 10px}
+.secth h3{font-size:21px}
+.secth span{font-size:14px;color:var(--muted)}
+.mins{display:inline-block;margin-left:8px;padding:0 8px;border-radius:999px;border:1px solid var(--line);font:700 12px var(--body);color:var(--lamp-2);vertical-align:2px;font-variant-numeric:tabular-nums}
+.odds{display:inline-block;margin-left:8px;font:700 12px var(--body);color:var(--muted)}
+.odds.lo{color:var(--ember)}
+.pick .warn{display:block;color:var(--ember);font-size:14px;margin-top:4px}
+.pick .ok{display:block;color:var(--lamp-2);font-size:14px;margin-top:4px}
+.shopres{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+.shopres li{display:flex;gap:10px;align-items:baseline;padding:8px 12px;border-radius:10px;background:var(--ink-2);border:1px solid var(--line)}
+.shopres .st{flex:none;width:96px;font:700 12px var(--body);letter-spacing:.06em;text-transform:uppercase}
+.shopres .st.ok{color:var(--lamp)} .shopres .st.out{color:var(--ember)} .shopres .st.late{color:var(--muted)}
+.shopnote{color:var(--muted);font-size:16px;margin:10px 0}
+
+/* v4: kodu ristlõige ja hilinenud tagajärjed */
+figure.house{margin:16px 0 0}
+figure.house svg{display:block;width:100%;height:auto;max-height:240px}
+@keyframes rain{from{transform:translate(0,-10px)}to{transform:translate(-4px,10px)}}
+.rain{animation:rain .6s linear infinite}
+@keyframes flick2{0%,100%{opacity:1}40%{opacity:.7}60%{opacity:.9}}
+.flame{animation:flick2 1.2s ease-in-out infinite}
+.echo{margin:4px 0 16px;padding:12px 14px;border-radius:10px;border:1px dashed var(--lamp);background:rgba(255,179,71,.06)}
+.echo b{display:block;font:700 12px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--lamp);margin-bottom:4px}
+.echo p{margin:0 0 6px;font-size:16px}
+.echo p:last-child{margin-bottom:0}
+@media (prefers-reduced-motion:reduce){.rain,.flame{animation:none}}
+.echo.crisis{border:1.5px solid var(--ember);background:rgba(255,123,95,.08)}
+.echo.crisis b{color:var(--ember)}
