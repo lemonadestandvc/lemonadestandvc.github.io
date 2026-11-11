@@ -12,7 +12,7 @@ function houseSvg(st, stage){
   const did = id => (st.log || []).includes(id);
   const torch = !grid && has('light');
   const candles = !grid && !torch && did('candles') && idx <= 4;
-  const fireOn = !grid && c.fire && idx >= 2 && (did('fire_ok') || did('fire_over') || did('fire_damper'));
+  const fireOn = !grid && c.fire && idx >= 2 && ['fire_ok','fire_over','fire_damper','woodpile','chairs','twigs'].some(did);
   const lit = grid || torch || candles || fireOn;
   const tempC = grid ? 21 : Math.round(5 + m.warmth * .16);
   const blanket = !grid && idx >= 2 && (has('warm') || did('one_room'));

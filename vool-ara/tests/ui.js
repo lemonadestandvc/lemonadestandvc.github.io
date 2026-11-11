@@ -11,6 +11,7 @@ for(let k=0;k<200;k++){
   if(R(2)) click(d.querySelector('[data-a="pet"][data-k="dog"]'));
   const hs=[...d.querySelectorAll('[data-a="home"]')].map(b=>b.dataset.v); click(d.querySelector(`[data-a="home"][data-v="${hs[R(hs.length)]}"]`));
   const he=[...d.querySelectorAll('[data-a="heat"]')].map(b=>b.dataset.v); if(he.length) click(d.querySelector(`[data-a="heat"][data-v="${he[R(he.length)]}"]`));
+  [...d.querySelectorAll('[data-a="own"]')].map(b=>b.dataset.k).forEach(k=>{ if(R(3)===0) click(d.querySelector(`[data-a="own"][data-k="${k}"]`)); });
   click(d.querySelector('[data-a="toPrep"]'));
   const sl=[...d.querySelectorAll('[data-a="slist"]')].map(b=>b.dataset.id).sort(()=>Math.random()-.5).slice(0,R(5)); sl.forEach(id=>click(d.querySelector(`[data-a="slist"][data-id="${id}"]`)));
   if(R(2)) click(d.querySelector('[data-a="goShop"]:not([disabled])'));
@@ -24,7 +25,7 @@ for(let k=0;k<200;k++){
     const en=[...d.querySelectorAll('.opt:not([disabled])')]; if(!en.length) throw new Error('dead end '+G.SC[G.state.i].id);
     click(en[R(en.length)]); click(d.querySelector('#nx')); }
   if(G.state.screen!=='end') throw new Error('no end');
-  if(/undefined|NaN|\[object/.test(d.body.textContent)) throw new Error('bad text on end');
+  {const t=d.querySelector('main').textContent+d.querySelector('#hud').textContent; const m=t.match(/.{60}(undefined|NaN|\[object).{30}/); if(m) throw new Error('bad text on end: '+m[0]+' | home '+G.state.home+' heat '+G.state.heat+' log '+G.state.log.join(','));}
   scores.push(G.finalScore(G.state));
   click(d.querySelector('[data-a="again"]')); if(G.state.screen!=='prep'||G.usedMin(G.state)!==0) throw new Error('again failed');
 }
