@@ -221,6 +221,21 @@ figure.house svg{display:block;width:100%;height:auto;max-height:240px}
 @media (prefers-reduced-motion:reduce){.rain,.flame{animation:none}}
 .echo.crisis{border:1.5px solid var(--ember);background:rgba(255,123,95,.08)}
 .echo.crisis b{color:var(--ember)}
+
+/* v6: alati nähtav ajaeelarve ekraani allservas */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(12,17,31,.97);border-top:1px solid var(--line);
+  padding:10px 18px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -10px 30px rgba(0,0,0,.4)}
+.dock-in{max-width:620px;margin:0 auto}
+.dock-row{display:flex;align-items:center;gap:14px}
+.dock-t{flex:1;min-width:0}
+.dock-t b{font:800 26px/1 var(--display);color:var(--lamp);font-variant-numeric:tabular-nums;margin-right:6px}
+.dock-t span{font-size:14px;color:var(--muted)}
+.dock .tbar{height:6px;background:var(--ink-3);border-radius:4px;overflow:hidden;margin-top:6px}
+.dock .tbar i{display:block;height:100%;background:var(--lamp)}
+.dock .tbar i.low{background:var(--ember)}
+.dock-warn{margin-bottom:8px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--ember);background:rgba(255,123,95,.1);font-size:15px}
+.dock-warn b{color:var(--ember)}
+section.prepsec{padding-bottom:130px}
 </style>
 </head>
 <body>
@@ -282,6 +297,9 @@ const SRC = {
   pa_kytt:{lab:'Päästeameti soovitus', name:'ERR: kütta kaks korda päevas, mitte üle kütta', url:'https://www.err.ee/902839/kova-pakane-eeldab-ettevaatlikkust-nii-kutmisel-kui-ka-oues-viibimisel'},
   gen:{lab:'Ohutusnõue', name:'ERR: generaatorid, priimused ja vingugaas', url:'https://www.err.ee/1608762442/inimesed-on-elektrikatkestuse-hirmus-soetanud-generaatorid-ja-priimused'},
   kute_el:{lab:'Taust', name:'ERR: elektrita seisavad majade küttepumbad', url:'https://www.err.ee/1608728929/elektrinappuse-korral-jaavad-esimesena-vooluta-elamud'},
+  pa_puit:{lab:'Päästeameti soovitus', name:'ERR: ahju käib ainult puit, mitte praht', url:'https://www.err.ee/1608842995/tulekahjude-ja-tulesurmade-rohkus-teeb-paasteametile-muret'},
+  pa_marg:{lab:'Päästeameti soovitus', name:'Päästeamet (Targu Talita): kütus olgu kuiv', url:'https://digar.ee/arhiiv/en/download/235041'},
+  sea:{lab:'Taust', name:'Itameri.fi: Läänemere soolsus', url:'https://itameri.fi/en/the-baltic-sea-now/water-quality/salinity/'},
   game:{lab:'Mänguvihje', name:'', url:''}
 };
 
@@ -298,9 +316,10 @@ const MO = {
   11:{t:-1,dark:'poole nelja paiku', snow:true}
 };
 function stormDates(now){
-  let d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if(!MO[d.getMonth()]) d = new Date(d.getMonth() > 9 ? d.getFullYear() + 1 : d.getFullYear(), 10, 10);
-  while(d.getDay() !== 5) d.setDate(d.getDate() + 1);
+  const nextFri = x => { x = new Date(x); while(x.getDay() !== 5) x.setDate(x.getDate() + 1); return x; };
+  let d = nextFri(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+  // soojal ajal (ka siis, kui järgmine reede jääb juba maisse) toimub lugu novembris
+  if(!MO[d.getMonth()]) d = nextFri(new Date(d.getMonth() > 10 ? d.getFullYear() + 1 : d.getFullYear(), 10, 10));
   const out = [];
   for(let i = 0; i < 4; i++){ const x = new Date(d); x.setDate(d.getDate() + i); out.push(x); }
   return {list:out, mo:MO[out[0].getMonth()]};
@@ -365,7 +384,7 @@ const HOMES = {
   aino:'Kilomeetri kaugusel naabertalus elab 82-aastane Aino. Raadiot tal pole ja ta on kaks ööd üksi olnud. Samal ajal astub läbi naaber Tiit: tal on generaator ja ta paneks selle garaažis käima.',
   genIn:'garaažis', point:'vald on avanud rahvamajas infopunkti'}
 };
-const HEAT_TEXT = {ahi:'Toad köetakse ahjuga, kuivad puud on kuuris.', kamin:'Kodus on ka kamin, mis töötab ilma elektrita. Puud on olemas.'};
+const HEAT_TEXT = {ahi:w => w ? 'Toad köetakse ahjuga, kuivad puud on kuuris.' : 'Toad köetakse ahjuga, aga küttepuid on alles vaid mõni halg.', kamin:w => w ? 'Kodus on ka kamin, mis töötab ilma elektrita. Puud on olemas.' : 'Kodus on ka kamin, mis töötab ilma elektrita, aga küttepuid hetkel pole.'};
 const FIRE = {ahi:{nom:'ahi', Nom:'Ahi'}, kamin:{nom:'kamin', Nom:'Kamin'}};
 
 /* ===== Varud: kodused toimetused (kindlad, aga võtavad aega) ja poeskäik (ebakindel) ===== */
@@ -427,8 +446,29 @@ const ITEMS = [
   n:'Vinguandur (patareiga)',
   tip:{src:'pa_vingu', text:'Päästeamet soovitab vingugaasiandurit igasse eluruumi, kus on ahi, kamin või pliit. Vingugaasi ei näe ega tunne.'}}
 ];
+ITEMS.push(
+ {id:'wood', where:'shop', p:.5, fx:{}, show:c => c.fire,
+  n:'Küttepuude kotid',
+  tip:{src:'ov_kute', text:'Varu nädala jagu kütust nii põhi- kui ka alternatiivse kütteseadme jaoks ja järgi kütuse hoiustamise ohutusnõudeid.'}},
+ {id:'crank', where:'own', fx:{}, n:'Üleskeeratav taskulamp-raadio',
+  tip:{src:'ov_varud', text:'Patarei- või dünamoraadio annab ametlikku infot ka siis, kui elekter ja side on maas.'}}
+);
 const ITEM = Object.fromEntries(ITEMS.map(i => [i.id, i]));
-const visibleItems = c => ITEMS.filter(i => !i.show || i.show(c));
+/* Mis on kodus juba olemas (seadistuses) */
+const OWN = [
+ {id:'stove', n:'Matkapliit ja gaasiballoon'},
+ {id:'crank', n:'Üleskeeratav taskulamp-raadio'},
+ {id:'radio', n:'Patareiraadio'},
+ {id:'light', n:'Taskulamp ja töötavad patareid'},
+ {id:'food', n:'Konserve ja kuivtoitu nädalaks'},
+ {id:'bottled', n:'Joogivett vähemalt päevaks kogu perele'},
+ {id:'cash', n:'Sularaha kodus'},
+ {id:'wood', n:'Küttepuid vähemalt nädalaks', show:c => c.fire},
+ {id:'co', n:'Vinguandur', show:c => c.fire},
+ {id:'baby', n:'Beebi varud nädalaks', show:c => c.f.baby > 0}
+];
+const ownIds = st => { const c = ctx(st), o = st.own || {}; return OWN.filter(x => o[x.id] && (!x.show || x.show(c))).map(x => x.id); };
+const visibleItems = c => ITEMS.filter(i => i.where !== 'own' && (!i.show || i.show(c)));
 const oddsText = pr => pr >= .85 ? ['tavaliselt olemas', ''] : pr >= .65 ? ['võib olla otsas', ''] : ['sageli otsas', 'lo'];
 
 /* ===== Lugu ===== */
@@ -441,7 +481,7 @@ const PREP = {
  ]),
  home:c => J([
   c.H.intro,
-  c.fire ? HEAT_TEXT[c.heat] : c.H.heatEl,
+  c.fire ? HEAT_TEXT[c.heat](!!c.own.wood) : c.H.heatEl,
   `Kodus on juba makaronid, kaks jõuluküünalt ja pooltühi akupank${c.f.dog ? ', koerale on pool kotti toitu' : ''}.`
  ])
 };
@@ -514,19 +554,19 @@ const SC = [
  {id:'cold', sky:'night', hour:13, day:1, time:'06:50', drift:{warmth:-28, water:-6, food:-5, power:-6, mood:-10, info:-8},
   title:c => c.fire ? 'Jahe hommik' : 'Radiaatorid',
   text:c => J([
-   c.heat === 'ahi' ? 'Ahi on öö jooksul jahtunud. Toas on 17 kraadi, ahjukivid on veel leiged ja puud on olemas.'
-   : c.heat === 'kamin' ? `Radiaatorid on külmad ja toas on ${c.H.temp} kraadi. Kamin ootab puudega.`
+   c.heat === 'ahi' ? `Ahi on öö jooksul jahtunud. Toas on 17 kraadi ja ahjukivid on veel leiged.${c.picks.includes('wood') ? ' Puud on olemas.' : ' Aga puid pole.'}`
+   : c.heat === 'kamin' ? `Radiaatorid on külmad ja toas on ${c.H.temp} kraadi. ${c.picks.includes('wood') ? 'Kamin ootab puudega.' : 'Kamin on olemas, aga puid pole.'}`
    : `Radiaatorid on külmad ja toas on ${c.H.temp} kraadi.`,
    c.f.small ? 'Pisike ärkab ja teatab, et toas on udu. See on tema hingeõhk.' : (c.f.school ? 'Koolilaps teatab, et ta näeb oma hingeõhku, ja tahab seda kõigile näidata.' : ''),
    c.f.dog ? 'Koer on end su jalgade peale kerinud nagu soojaveepudel.' : ''
   ]),
   opts:[
-   {id:'fire_ok', show:c => c.fire, fx:c => ({warmth:c.heat === 'ahi' ? 30 : 24, mood:6}),
+   {id:'fire_ok', show:c => c.fire, req:'wood', fx:c => ({warmth:c.heat === 'ahi' ? 30 : 24, mood:6}),
     mods:[{has:'co', fx:{mood:3}, text:'Vinguandur vilgutab seinal rahulikult rohelist tuld.'}],
     t:c => `Küta ${FIRE[c.heat].nom} õigesti: siiber lahti, kuivad puud, kolle mitte liiga täis`,
     r:c => `Siiber täiesti lahti, kuivad halud, kolle mitte liiga täis. Pool tundi hiljem ${c.heat === 'ahi' ? 'ahi mühiseb' : 'kamin praksub'} ja kõik istuvad selle ees nagu lõkke ääres. Siibri paned kinni alles siis, kui leeki enam pole ja järel on vaid hõõguvad söed.`,
     tip:{src:'pa_vingu', text:'Siiber olgu kütmise ajal täiesti lahti. Liiga vara suletud siiber on vingugaasimürgistuse sage põhjus. Küta ahju või kaminat vaid siis, kui oled ärkvel.'}},
-   {id:'fire_damper', show:c => c.fire, fx:{warmth:18, mood:-6},
+   {id:'fire_damper', show:c => c.fire && c.picks.includes('wood'), fx:{warmth:18, mood:-6},
     mods:[
      {has:'co', fx:{mood:-4}, text:'Vinguandur hakkab piiksuma. Teed siibri ja aknad lahti ja viid pere hetkeks värske õhu kätte. Andur tegi täpselt seda, milleks ta seinal on.'},
      {not:'co', fx:{mood:-18, warmth:-6}, text:'Mõne aja pärast hakkab pea valutama ja keegi on imelikult unine. Taipad, mis toimub: siiber lahti, aknad lahti, kõik õue värske õhu kätte. Kui kellelgi on halb, helista 112.'}
@@ -534,10 +574,26 @@ const SC = [
     t:'Sulge siiber varakult, et soojus korstnast välja ei läheks',
     r:'Leek on juba väike ja tundub, et soojus pääseb korstnast välja. Lükkad siibri kinni.',
     tip:{src:'pa_vingu', text:'Sulge siiber alles siis, kui leeki pole ja järel on vaid hõõguvad söed. Päästeamet soovitab vingugaasiandurit igasse koju, kus on ahi, kamin või pliit.'}},
-   {id:'fire_over', show:c => c.fire, fx:{warmth:22, mood:-8},
+   {id:'fire_over', show:c => c.fire && c.picks.includes('wood'), fx:{warmth:22, mood:-8},
     t:c => `Lao ${FIRE[c.heat].nom} puid täis ja küta terve päev järjest`,
     r:c => `${FIRE[c.heat].Nom} läheb nii kuumaks, et seda ei saa puudutada, ja korstnast kostab mühinat. Toas on palav, aga sul hakkab kõhe. Lased ${c.heat === 'ahi' ? 'ahjul' : 'kaminal'} rahulikult maha jahtuda.`,
     tip:{src:'pa_kytt', text:'Päästeamet soovitab külmaga kütta kaks korda päevas, hommikul ja õhtul, mitte laduda korraga palju puid. Ülekütmine on tulekahjude sage põhjus.'}},
+   {id:'woodpile', show:c => c.fire && !c.picks.includes('wood'), fx:{warmth:22, mood:6}, comm:1,
+    mods:[
+     {has:'cash', fx:{mood:4}, text:'Pakud sularaha. Naaber keeldub, aga raha tegi jutu lihtsamaks.'},
+     {not:'cash', fx:{mood:-2}, text:'Raha sul pole, nii et lubad kevadel puude lõhkumisel aidata.'}
+    ],
+    t:'Mine naabri puuriida juurde ja paku midagi vastu',
+    r:c => `Naabermaja puuriit on ilus nagu postkaart. Peremees on alguses kahtlustav, aga ${c.kids ? 'kui kuuleb, et teil on lapsed' : 'kui kuuleb, et teil on külm'}, toob ta ise kaks sületäit kuivi halge.`,
+    tip:{src:'sim', text:'Tehke kriisis naabritega koostööd ja mõelge koos läbi, kuidas saate üksteist aidata.'}},
+   {id:'chairs', show:c => c.fire && !c.picks.includes('wood'), fx:{warmth:12, mood:-6},
+    t:'Lõhu vanad toolid ja põleta neid',
+    r:c => `Kaks vana tooli lähevad tükkideks. Lakitud puit suitseb, haiseb ja tahmab korstna, aga ${c.heat === 'ahi' ? 'ahjust' : 'kaminast'} tuleb natuke sooja.`,
+    tip:{src:'pa_puit', text:'Päästeamet: ahju käib ainult puit, mitte praht, sest muidu tahmuvad lõõrid ja tahm võib süttida. Värvitud või lakitud mööbel ei ole puhas puit.'}},
+   {id:'twigs', show:c => c.fire && !c.picks.includes('wood'), fx:{warmth:6, mood:-2},
+    t:'Korja pargist või metsast oksi',
+    r:'Seal käib juba neli teist peret sama asja tegemas. Saad kotitäie märgi oksi. Need susisevad ja suitsevad rohkem, kui soojendavad.',
+    tip:{src:'pa_marg', text:'Kütus olgu kuiv: märg kütus tekitab korstnas tuleohtlikku pigi ja kuiv puit annab palju rohkem sooja.'}},
    {id:'one_room', fx:{warmth:22, mood:4},
     mods:[
      {has:'warm', fx:{warmth:10}, text:c => c.f.school ? 'Magamiskotid ja villased! Koolilaps kuulutab toa Tekilinnuseks ja nõuab uksel parooli.' : 'Magamiskotid ja villased! Tuba muutub Tekilinnuseks.'},
@@ -585,6 +641,10 @@ const SC = [
     t:c => `Sulata ja keeda lund ${c.H.out}`,
     r:'Lumi potti, pott matkapliidile ja keeta suurel kuumusel 10 minutit. Aeglane, aga töötab. Maitseb natuke nagu talv.',
     tip:{src:'ov_el', text:'Looduslikust veekogust võetud vett, sealhulgas lumevett, keeda suurel kuumusel 10 minutit või kasuta filtrit või veepuhastustablette.'}},
+   {id:'sea', show:c => c.home === 'maa', fx:{water:6, mood:-6},
+    t:'Keeda lõkke peal merevett',
+    r:'Merevesi keeb lõkke peal ja on pärast seda mikroobidest puhas, aga soolane. Keetmine ei vii soola ära: aur läheb, sool jääb ja vesi muutub veel soolasemaks. Pesemiseks sobib, joogiks mitte.',
+    tip:{src:'sea', text:'Läänemere pinnavees on keskmiselt umbes 7 grammi soola kilogrammi vee kohta. Keetmine hävitab mikroobid, aga ei eemalda soola ega keemilist reostust. Parem on vihma- või lumevesi, kaev või allikas.'}},
    {id:'teen', show:c => c.f.teen > 0, fx:{water:14, mood:6},
     mods:[{has:'stove', fx:{water:8}, text:'Allikavee keedad enne joomist matkapliidil läbi.'},
           {not:'stove', fx:{mood:-3}, text:'Keeta pole millegi peal, nii et allikavesi läheb pesemiseks ja loputuseks.'}],
@@ -656,9 +716,9 @@ const SC = [
    {not:'meds', fx:{mood:-14}, text:c => `${c.f.small ? 'Pisike komistab' : c.f.school ? 'Koolilaps komistab' : 'Komistad ise'} pimedas ja põlvele tuleb muhk. Plaastrit pimedas ei leia, nii et kallistus peab piisama.`}
   ],
   opts:[
-   {id:'games', req:'games', fx:{mood:34},
-    t:'Lauamängud taskulambi valgel',
-    r:c => c.f.school ? 'Taskulambi valgel mängite kaarte. Koolilaps võidab. Koolilaps võidab alati. Aga naer on päeva jooksul esimest korda vali ja päris.' : 'Taskulambi valgel mängite kaarte ja naer on päeva jooksul esimest korda vali ja päris.',
+   {id:'games', req:'games', fx:c => c.picks.includes('light') ? {mood:34} : {mood:22, power:-10},
+    t:c => c.picks.includes('light') ? 'Lauamängud taskulambi valgel' : 'Lauamängud telefoni valgel',
+    r:c => `${c.picks.includes('light') ? 'Taskulambi valgel' : 'Telefoni valgel (aku kannatab)'} mängite kaarte. ${c.f.school ? 'Koolilaps võidab. Koolilaps võidab alati. ' : ''}Aga naer on päeva jooksul esimest korda vali ja päris.`,
     tip:{src:'game', text:'Mäng ei kuluta akut ja hoiab tuju üleval.'}},
    {id:'shadow', req:'light', fx:{mood:20},
     t:'Varjuteater taskulambiga',
@@ -741,7 +801,9 @@ const ECHO = {
   {test:st => did(st, 'candles') && !st.picks.includes('light'), fx:{mood:-8}, text:'Jõuluküünlad põlesid eile õhtul lõpuni. Täna pole enam millegagi valgust teha.'},
   {test:st => did(st, 'fire_over'), fx:{warmth:-8}, text:c => `Pärast hommikust ülekütmist on ${c.heat === 'ahi' ? 'ahju' : 'kamina'} küljel peenike pragu. Kütad nüüd väiksema koormaga ja tuba jääb jahedamaks.`},
   {test:st => did(st, 'bed'), fx:{mood:-4}, text:'Hommikune voodis ootamine maksab õhtul kätte: kõigil on külm ja tuju on nõrk.'},
-  {test:st => did(st, 'one_room'), fx:{warmth:4}, text:'Hommikul tihendatud tuba hoiab sooja ka õhtul.'}
+  {test:st => did(st, 'one_room'), fx:{warmth:4}, text:'Hommikul tihendatud tuba hoiab sooja ka õhtul.'},
+  {test:st => did(st, 'chairs'), fx:{warmth:-6}, text:'Toolidest jätkus vaid hommikuks. Õhtuks on kolle jälle külm ja tuba jahtub.'},
+  {test:st => did(st, 'twigs'), fx:{warmth:-3, mood:-3}, text:'Märjad oksad jätsid korstnasse tahma ja kolle tõmbab halvasti.'}
  ],
  aino:[
   {test:st => !did(st, 'fridge'), fx:{food:-8}, text:'Külmkapis olnud hakkliha lõhnab kahtlaselt ja läheb prügisse. Uks käis eile liiga tihti lahti.'},
@@ -754,6 +816,7 @@ const ECHO = {
  point:[
   {test:st => did(st, 'call'), fx:{info:6}, text:'Riigiinfo telefonil öeldi reedel, et omavalitsus avab vajadusel infopunkti. Sa kirjutasid info üles ja tead nüüd, kuhu minna.'},
   {test:st => did(st, 'invite'), fx:{mood:6, food:4}, text:'Aino on hommikust saati teie juures. Ta on termosed täitnud ja võileivad teinud, „igaks juhuks“.'},
+  {test:st => did(st, 'woodpile'), fx:{warmth:6}, text:'Naaber, kelle puuriidast laupäeval sai, tõi ise veel ühe korvitäie. Uus sõprus on soe.'},
   {test:st => did(st, 'gen_out'), fx:{power:10}, text:'Tiidu laadimispunktist said kõik telefonid täis.'},
   {test:st => did(st, 'gen_in'), fx:{mood:-4}, text:'Pärast hommikust generaatoriintsidenti on Tiit veel kahvatu ja aknad on tuulutuseks lahti.'}
  ]
@@ -808,7 +871,7 @@ function ctx(st){
   const f = st.fam, kids = f.baby + f.small + f.school + f.teen;
   const H = HOMES[st.home] || HOMES.paneel;
   const heat = H.fireOk ? st.heat : 'ei';
-  return {f, kids, people:f.adults + kids, home:st.home, H, heat, fire:heat === 'ahi' || heat === 'kamin', pets:!!(f.dog || f.cat)};
+  return {f, kids, people:f.adults + kids, home:st.home, H, heat, fire:heat === 'ahi' || heat === 'kamin', pets:!!(f.dog || f.cat), picks:st.picks || [], own:st.own || {}};
 }
 const freshPrep = () => ({done:{}, list:[], shop:null, batt:null});
 const kidMult = st => Math.min(1.5, 1 + .2 * (st.fam.small + st.fam.baby));
@@ -821,20 +884,25 @@ function usedMin(st){
 }
 const shopGot = (pr, id) => !!(pr.shop && pr.shop.res.some(r => r.id === id && r.st === 'ok'));
 function computePicks(st){
-  const c = ctx(st), pr = st.prep, out = [];
+  const c = ctx(st), pr = st.prep, owned = ownIds(st), out = [];
+  const add = id => { if(!out.includes(id)) out.push(id); };
+  owned.forEach(id => { if(id === 'crank'){ add('light'); add('radio'); } else add(id); });
   visibleItems(c).forEach(it => {
+    if(it.where === 'own') return;
     if(it.where === 'home'){
       if(!pr.done[it.id]) return;
       if(it.id === 'light' && !(pr.batt || shopGot(pr, 'batt'))) return;
-      out.push(it.id);
-    } else if(it.id !== 'batt' && shopGot(pr, it.id)) out.push(it.id);
+      add(it.id);
+    } else if(it.id !== 'batt' && shopGot(pr, it.id)) add(it.id);
   });
   return out;
 }
+const hasLight = st => { const o = ownIds(st); return o.includes('light') || o.includes('crank'); };
 function doShop(st, rnd){
   rnd = rnd || Math.random;
   const c = ctx(st), vis = visibleItems(c).map(i => i.id);
-  const list = st.prep.list.filter(id => vis.includes(id));
+  const ow = ownIds(st);
+  const list = st.prep.list.filter(id => vis.includes(id) && !ow.includes(id));
   const remaining = BUDGET - usedMin(st);
   const queue = Math.round(rnd() * SHOP_QUEUE_MAX / 5) * 5;
   let t = SHOP_BASE + queue;
@@ -912,15 +980,15 @@ function beginRun(st){
 
 /* ===== Olek ===== */
 let S;
-const DEF_FAM = {adults:2, baby:0, small:1, school:1, teen:0, dog:true, cat:false};
+const DEF_FAM = {adults:2, baby:0, small:1, school:1, teen:0, dog:false, cat:false};
 function loadSetup(){
   try{ const s = JSON.parse(localStorage.getItem('vool-setup3') || 'null'); if(s && s.fam && HOMES[s.home]) return s; }catch(e){}
-  return {fam:Object.assign({}, DEF_FAM), home:'paneel', heat:'ei'};
+  return {fam:Object.assign({}, DEF_FAM), home:'paneel', heat:'ei', own:{}};
 }
-function saveSetup(){ try{ localStorage.setItem('vool-setup3', JSON.stringify({fam:S.fam, home:S.home, heat:S.heat})); }catch(e){} }
+function saveSetup(){ try{ localStorage.setItem('vool-setup3', JSON.stringify({fam:S.fam, home:S.home, heat:S.heat, own:S.own})); }catch(e){} }
 function fresh(){
   const su = loadSetup();
-  return {screen:'title', fam:su.fam, home:su.home, heat:su.heat, prep:freshPrep(), picks:[], i:0, m:Object.assign({}, BASE), comm:0,
+  return {screen:'title', fam:su.fam, home:su.home, heat:su.heat, own:su.own || {}, prep:freshPrep(), picks:[], i:0, m:Object.assign({}, BASE), comm:0,
           log:[], hist:[], used:{}, missed:{}, res:null, drift:{}, fun:null, again:null, note:'', fb:'', shareMsg:'', shareFallback:''};
 }
 const $ = s => document.querySelector(s);
@@ -956,7 +1024,7 @@ function houseSvg(st, stage){
   const did = id => (st.log || []).includes(id);
   const torch = !grid && has('light');
   const candles = !grid && !torch && did('candles') && idx <= 4;
-  const fireOn = !grid && c.fire && idx >= 2 && (did('fire_ok') || did('fire_over') || did('fire_damper'));
+  const fireOn = !grid && c.fire && idx >= 2 && ['fire_ok','fire_over','fire_damper','woodpile','chairs','twigs'].some(did);
   const lit = grid || torch || candles || fireOn;
   const tempC = grid ? 21 : Math.round(5 + m.warmth * .16);
   const blanket = !grid && idx >= 2 && (has('warm') || did('one_room'));
@@ -1103,14 +1171,17 @@ function viewSetup(){
       ${ch('heat','kamin',S.heat,'Jah, kamin','Soojendab peamiselt ühte tuba.')}
       ${ch('heat','ei',S.heat,'Ei','Gaasikatel, keskküte, soojuspump või elekter: kõik vajavad voolu.')}
     </div>` : ''}
+    <h3>Mis teil kodus juba olemas on?</h3>
+    <p class="note" style="margin-top:-4px">Ole aus: see on ainus koht, kus mäng sinu päris kodu kohta küsib.</p>
+    <div class="toggles">${OWN.filter(x => !x.show || x.show(c)).map(x => `<button type="button" class="tog" data-a="own" data-k="${x.id}" aria-pressed="${!!S.own[x.id]}">${x.n}</button>`).join('')}</div>
     <p class="sum">Teie peres on <b>${c.people} ${p(c.people,'inimene','inimest')}</b>. Ametlik soovitus: 3 liitrit joogivett inimese kohta päevas, teil seega <b>${c.people*3} liitrit päevas</b> ja <b>${c.people*21} liitrit nädalas</b>.</p>
     <div class="cta-row"><button class="btn" type="button" data-a="toPrep">Edasi: tormihoiatus</button></div>
   </section>`;
 }
 function viewPrep(){
-  const c = ctx(S), pr = S.prep, items = visibleItems(c);
+  const c = ctx(S), pr = S.prep, owned = ownIds(S), items = visibleItems(c);
   const used = usedMin(S), rem = BUDGET - used;
-  const home = items.filter(i => i.where === 'home').map(it => {
+  const home = items.filter(i => i.where === 'home' && !(i.id === 'light' && hasLight(S))).map(it => {
     const on = !!pr.done[it.id], tm = taskMin(S, it.id), dis = !on && tm > rem;
     let extra = '';
     if(it.id === 'light' && on){
@@ -1124,7 +1195,7 @@ function viewPrep(){
   }).join('');
   let shop;
   if(!pr.shop){
-    const sitems = items.filter(i => i.where === 'shop');
+    const sitems = items.filter(i => i.where === 'shop' && !owned.includes(i.id) && !(i.id === 'batt' && hasLight(S)) && !(i.id === 'radio' && owned.includes('crank')));
     const n = pr.list.filter(id => sitems.some(i => i.id === id)).length;
     const lo = SHOP_BASE + SHOP_PER_ITEM * n, hi = lo + SHOP_QUEUE_MAX;
     const li = sitems.map(it => {
@@ -1143,23 +1214,29 @@ function viewPrep(){
     const li = s.res.map(r => `<li><span class="st ${r.st}">${lab[r.st]}</span><span>${esc(ITEM[r.id].n)}</span></li>`).join('');
     shop = `<p class="shopnote">${q} Kokku kulus ${s.took} minutit.</p>${li ? `<ul class="shopres">${li}</ul>` : ''}`;
   }
-  return `<section>
+  return `<section class="prepsec">
     ${houseSvg(S, 'prep')}
     <div class="when"><span class="t">${hhmm(PREP_START + used)}</span><span class="d">${esc(dlabel(0))}</span></div>
     <h2 class="st" tabindex="-1" id="h">${PREP.title}</h2>
     <div class="story"><p>${esc(PREP.text(c))}</p></div>
     <p class="home">${esc(PREP.home(c))}</p>
-    <div class="budget" aria-live="polite"><div class="row1"><span>Aega tormini</span><b>${rem} min</b></div>
-      <div class="tbar"><i class="${rem < 30 ? 'low' : ''}" style="width:${Math.max(0, rem / BUDGET * 100)}%"></i></div></div>
-    <div class="secth"><h3>Kodus</h3><span>kindel, aga võtab aega</span></div>
+    ${owned.length ? `<p class="shopnote">Kodus juba olemas: ${esc(owned.map(id => (OWN.find(x => x.id === id) || {}).n).join(', ').toLowerCase())}.</p>` : ''}
+    <div class="secth"><h3>1. Poeskäik</h3><span>ainult üks kord, tulemus pole kindel</span></div>
+    ${shop}
+    <div class="secth"><h3>2. Kodus</h3><span>kindel, aga võtab aega</span></div>
     ${kidMult(S) > 1 ? `<p class="shopnote">${p(c.f.small + c.f.baby, 'Väike laps', 'Väikesed lapsed')} ${p(c.f.small + c.f.baby, 'tahab', 'tahavad')} samal ajal tähelepanu, nii et kõik võtab kauem.</p>` : ''}
     <ul class="picks">${home}</ul>
-    <div class="secth"><h3>Poeskäik</h3><span>ainult üks kord, tulemus pole kindel</span></div>
-    ${shop}
-    ${S.confirm ? `<div class="echo crisis" id="confirm" role="alert"><b>Kindel?</b>${!pr.shop ? '<p>Sa ei käinud poes: toitu, raadiot, matkapliiti ega sularaha juurde ei tule.</p>' : ''}${rem >= 10 ? `<p>Aega on veel ${rem} minutit.</p>` : ''}<p>Vajuta uuesti „Oota tormi“, kui oled valmis.</p></div>` : ''}
-    <div class="cta-row"><button class="btn" type="button" data-a="begin">Oota tormi</button>
-      <button class="btn ghost" type="button" data-a="toSetup">Muuda peret või kodu</button></div>
-    <p class="note">Kui vajutad „Oota tormi“, lähevad tuled ära.</p>
+    <div class="cta-row"><button class="btn ghost" type="button" data-a="toSetup">Muuda peret või kodu</button></div>
+    <div class="dock" role="region" aria-label="Aeg tormini">
+      <div class="dock-in">
+        ${S.confirm ? `<div class="dock-warn" id="confirm" role="alert"><b>Kindel?</b> ${!pr.shop ? 'Sa ei käinud poes. ' : ''}${rem >= 10 ? `Aega on veel ${rem} min. ` : ''}Vajuta uuesti, kui oled valmis.</div>` : ''}
+        <div class="dock-row">
+          <div class="dock-t"><b>${rem} min</b><span>tormini${pr.shop ? '' : ' · poes käimata'}</span>
+            <div class="tbar"><i class="${rem < 30 ? 'low' : ''}" style="width:${Math.max(0, rem / BUDGET * 100)}%"></i></div></div>
+          <button class="btn" type="button" data-a="begin">Oota tormi</button>
+        </div>
+      </div>
+    </div>
   </section>`;
 }
 function viewScene(){
@@ -1294,9 +1371,10 @@ function refocus(sel){ const b = document.querySelector(sel); if(b) b.focus({pre
 const A = {
   start(){ S.screen = 'setup'; render(); focusHeading(); },
   inc(d){ keep(() => { const row = STEP_ROWS.find(r => r[0] === d.k); S.fam[d.k] = Math.max(row[3], Math.min(row[4], S.fam[d.k] + (+d.d))); saveSetup(); }); refocus(`[data-a="inc"][data-k="${d.k}"][data-d="${d.d}"]`); },
-  pet(d){ keep(() => { S.fam[d.k] = !S.fam[d.k]; saveSetup(); }); },
-  home(d){ keep(() => { S.home = d.v; saveSetup(); }); },
-  heat(d){ keep(() => { S.heat = d.v; saveSetup(); }); },
+  pet(d){ keep(() => { S.fam[d.k] = !S.fam[d.k]; saveSetup(); }); refocus(`[data-a="pet"][data-k="${d.k}"]`); },
+  home(d){ keep(() => { S.home = d.v; saveSetup(); }); refocus(`[data-a="home"][data-v="${d.v}"]`); },
+  heat(d){ keep(() => { S.heat = d.v; if(d.v === 'ahi' && S.own.wood === undefined) S.own.wood = true; saveSetup(); }); refocus(`[data-a="heat"][data-v="${d.v}"]`); },
+  own(d){ keep(() => { S.own[d.k] = !S.own[d.k]; saveSetup(); }); refocus(`[data-a="own"][data-k="${d.k}"]`); },
   toSetup(){ S.screen = 'setup'; S.res = null; render(); focusHeading(); },
   toPrep(){ S.screen = 'prep'; render(); focusHeading(); },
   task(d){
@@ -1320,7 +1398,6 @@ const A = {
     const rem = BUDGET - usedMin(S);
     if(!S.confirm && (!S.prep.shop || rem >= 10)){
       S.confirm = true; keep(() => {});
-      const w = $('#confirm'); if(w) w.scrollIntoView({block:'center', behavior:REDUCED ? 'auto' : 'smooth'});
       return;
     }
     S.confirm = false;

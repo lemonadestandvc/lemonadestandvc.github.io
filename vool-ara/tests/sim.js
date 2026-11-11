@@ -6,7 +6,7 @@ const G = dom.window.__vool; const R=n=>Math.floor(Math.random()*n); const clone
 const homes=Object.keys(G.HOMES);
 function randSetup(){ return {fam:{adults:1+R(2), baby:R(3)===0?1:0, small:R(3), school:R(3), teen:R(3)===0?1:0, dog:R(2)===0, cat:R(3)===0}, home:homes[R(4)], heat:['ahi','kamin','ei'][R(3)]}; }
 function prep(su, policy){
-  const st={fam:su.fam,home:su.home,heat:su.heat,prep:G.freshPrep(),picks:[],comm:0};
+  const own={}; ['stove','crank','radio','light','food','bottled','cash','wood','co','baby'].forEach(k=>{ if(R(4)===0) own[k]=true; }); const st={fam:su.fam,home:su.home,heat:su.heat,own,prep:G.freshPrep(),picks:[],comm:0};
   const c=G.ctx(st); const vis=G.visibleItems(c);
   const home=vis.filter(i=>i.where==='home').map(i=>i.id).sort(()=>Math.random()-.5);
   const shopI=vis.filter(i=>i.where==='shop').map(i=>i.id).sort(()=>Math.random()-.5);
