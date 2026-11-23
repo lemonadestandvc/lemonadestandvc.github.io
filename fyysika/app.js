@@ -99,6 +99,7 @@ async function route() {
   try {
     if (path === "/login") return await viewLogin();
     if (path === "/practice") return await viewPractice(params);
+    if (path === "/test") return await viewTest();
     if (path === "/cards") return viewCards(params);
     if (path === "/ask") return viewAsk();
     if (path === "/parent") return await viewParent();
@@ -149,8 +150,16 @@ function pinStep(p) {
 // ------------------------------------------------------------ home
 async function viewHome() {
   const me = store.get("me");
-  const s = await api("/summary");
+  const [s, diag] = await Promise.all([api("/summary"), api("/diag/status")]);
   const next = META.events.find((e) => daysTo(e.date) >= 0);
+  const testCard = diag.status === "done" ? "" : `
+    <div class="card advice">
+      <h3>${diag.status === "open" ? "Tasemetest on pooleli" : "Alusta tasemetestiga"}</h3>
+      <p class="small">${diag.status === "open"
+        ? `Vastatud ${diag.progress.answered} küsimust umbes ${diag.progress.estimate}-st.`
+        : "Umbes 12 ülesannet (30–40 min), vihjeid ei ole. Iga vastus mõjutab, kui raske on järgmine küsimus. Selle järgi valib äpp, kust alustada."}</p>
+      <a class="btn block accent" href="#/test">${diag.status === "open" ? "Jätka testi" : "Tee tasemetest"}</a>
+    </div>`;
   const mins = Math.round(s.today.seconds / 60);
   const p = Math.min(100, Math.round((mins / s.today.goalMin) * 100));
   const subsByTopic = {};
@@ -158,12 +167,13 @@ async function viewHome() {
 
   $app.innerHTML = `
     <h1>Tere, ${esc(me.name)}!</h1>
+    ${testCard}
     <div class="card row">
       <div class="ring" style="--p:${p}"><div>${mins}<small>/ ${s.today.goalMin} min</small></div></div>
       <div class="grow">
         ${next ? `<div><b>${esc(next.title)}</b> <span class="muted">${daysTo(next.date)} päeva pärast</span></div>` : ""}
         <div class="muted small">${s.streak ? `🔥 ${s.streak} päeva järjest` : "Täna on hea päev alustamiseks"}${s.dueReviews ? ` · ${s.dueReviews} kordamist ootab` : ""}</div>
-        <a class="btn block accent" style="margin-top:10px" href="#/practice">${mins ? "Jätka trenni" : "Alusta tänast trenni"}</a>
+        <a class="btn block ${diag.status === "done" ? "accent" : "ghost"}" style="margin-top:10px" href="#/practice">${mins ? "Jätka trenni" : "Alusta tänast trenni"}</a>
       </div>
     </div>
     ${Object.entries(subsByTopic).map(([t, subs]) => `
@@ -182,8 +192,72 @@ async function viewHome() {
       <div><div class="stat">${s.week.minutes}</div><div class="muted small">minutit</div></div>
       <div><div class="stat">${s.week.solved}</div><div class="muted small">ülesannet${s.week.cleanRate != null ? `, ${Math.round(s.week.cleanRate * 100)}% puhtalt` : ""}</div></div>
     </div>
-    <p class="center muted small"><a href="#" id="out" class="muted">Logi välja</a></p>`;
+    <p class="center muted small">${diag.status === "done" ? `<a href="#/test?again=1" class="muted">Tee tasemetest uuesti</a> · ` : ""}<a href="#" id="out" class="muted">Logi välja</a></p>`;
   document.getElementById("out").onclick = (e) => { e.preventDefault(); logout(); };
+}
+
+// ------------------------------------------------------------ placement test
+async function viewTest() {
+  const again = new URLSearchParams(location.hash.split("?")[1] || "").get("again");
+  const st = await api("/diag/status");
+  if (st.status === "open") return testQuestion(st.q, st.progress);
+  if (st.status === "done" && !again) return testResults(st.results);
+  $app.innerHTML = `<h1>Tasemetest</h1>
+    <div class="card">
+      <p>Test näitab, kui kaugel sa soojus- ja elektriõpetuses oled. Umbes 12 ülesannet, 30–40 minutit.</p>
+      <ul>
+        <li>Vihjeid ja õpetajat testi ajal ei ole.</li>
+        <li>Kui vastad õigesti, on järgmine ülesanne raskem; kui valesti, lihtsam. Seega on raskeid ülesandeid tavaline mitte osata.</li>
+        <li>Kui sa ei tea, vajuta „Ei oska“. Arvamine teeb tulemuse ebatäpsemaks.</li>
+        <li>Pane valmis paber, pliiats ja kalkulaator. Testi võib pooleli jätta ja hiljem jätkata.</li>
+      </ul>
+      <button class="block accent" id="start">Alusta</button>
+    </div>`;
+  document.getElementById("start").onclick = async () => { const r = await api("/diag/start", {}); testQuestion(r.q, r.progress); };
+}
+
+function testQuestion(q, progress) {
+  const start = Date.now();
+  const sub = META.subtopics[q.subtopic];
+  $app.innerHTML = `
+    <div class="row small" style="margin-bottom:6px"><span class="badge">Tasemetest</span><span class="muted grow">${progress.answered + 1}. küsimus (umbes ${progress.estimate}-st)</span></div>
+    <div class="bar" style="margin-bottom:12px"><i style="width:${Math.round((progress.answered / progress.estimate) * 100)}%"></i></div>
+    <div class="card">
+      <p class="muted small">${esc(sub.title)}</p>
+      <div class="qtext" id="qt"></div>
+      <div class="answer-row"><input id="ans" inputmode="decimal" autocomplete="off" placeholder="Vastus"><span class="unit">${esc(q.unit)}</span></div>
+      <p class="err" id="terr"></p>
+      <div class="grid2" style="margin-top:10px"><button class="ghost" id="skip">Ei oska</button><button id="send">Vasta</button></div>
+    </div>
+    <p class="center"><a href="#/" class="muted small">Jätka hiljem</a></p>`;
+  setRich(document.getElementById("qt"), q.text);
+  const $ans = document.getElementById("ans");
+  const submit = async (skip) => {
+    if (!skip && !$ans.value.trim()) return $ans.focus();
+    $app.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    try {
+      const r = await api("/diag/answer", { qid: q.id, value: $ans.value.trim(), skip, seconds: Math.round((Date.now() - start) / 1000) });
+      window.scrollTo(0, 0);
+      r.done ? testResults(r.results) : testQuestion(r.q, r.progress);
+    } catch (e) {
+      document.getElementById("terr").textContent = e.message;
+      $app.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    }
+  };
+  document.getElementById("send").onclick = () => submit(false);
+  document.getElementById("skip").onclick = () => submit(true);
+  $ans.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(false); });
+}
+
+function testResults(results) {
+  const weakest = [...results].sort((a, b) => a.rating - b.rating)[0];
+  $app.innerHTML = `<h1>Tasemetesti tulemus</h1>
+    <div class="card">${results.map((r) => `
+      <div class="sub"><div class="row"><span class="grow">${esc(r.title)}</span><span class="small muted">${levelName(r.rating)}</span></div>
+      <div class="bar"><i style="width:${pct(r.rating)}%"></i></div></div>`).join("")}</div>
+    <div class="card advice"><p>Äpp alustab sinu tasemel ja keskendub enim teemale <b>${esc(weakest.title.toLowerCase())}</b>. Valesti läinud testiülesanded tulevad homme kordamiseks tagasi.</p>
+    <p class="small muted">Tasemed: algaja → põhitase → kooliolümpiaad → piirkonnavoor → lõppvoor.</p></div>
+    <a class="btn block accent" href="#/practice">Alusta trenni</a>`;
 }
 
 // ------------------------------------------------------------ practice
@@ -340,6 +414,9 @@ async function viewParent() {
     return `
     <h1>${esc(s.name)}</h1>
     <div class="card advice ${sm.advice.level}"><b>Soovitus</b><p>${esc(sm.advice.text)}</p></div>
+    <div class="card"><h3>Tasemetest</h3>${s.diag
+      ? `<p class="small muted">Tehtud ${esc(s.diag.finished_at.slice(0, 10))}</p>${s.diag.results.map((r) => `<div class="row small"><span class="grow">${esc(r.title)}</span><span>${levelName(r.rating)}</span></div>`).join("")}`
+      : `<p class="muted">Veel tegemata. Test ilmub ${esc(s.name)} avalehel esimese asjana.</p>`}</div>
     <div class="card grid2">
       <div><div class="stat">${Math.round(sm.today.seconds / 60)} / ${s.daily_goal_min}</div><div class="muted small">min täna</div></div>
       <div><div class="stat">${sm.week.minutes}</div><div class="muted small">min 7 päevaga</div></div>
@@ -350,7 +427,7 @@ async function viewParent() {
     <div class="card"><h3>Tase teemade kaupa</h3>${Object.entries(sm.subtopics).map(([k, st]) => `
       <div class="sub"><div class="row"><span class="grow">${esc(META.subtopics[k].title)}</span><span class="small muted">${levelName(st.rating)} · ${st.done}/${st.total}</span></div><div class="bar"><i style="width:${pct(st.rating)}%"></i></div></div>`).join("")}</div>
     <div class="card"><h3>Viimased ülesanded</h3>${s.recent.length ? `<table><tr><th>Ül.</th><th>Tase</th><th>Tulemus</th><th>Aeg</th></tr>${s.recent.map((r) => `
-      <tr><td>${esc(r.qid)}</td><td>${r.level ?? ""}</td><td>${r.outcome === "correct" ? (r.tries === 1 && !r.hints ? "✅ puhtalt" : `✅ ${r.tries}. katse${r.hints ? ", " + r.hints + " vihjet" : ""}`) : "👀 vaatas lahendust"}</td><td>${Math.round(r.seconds / 60)} min</td></tr>`).join("")}</table>` : `<p class="muted">Veel pole midagi lahendatud.</p>`}</div>
+      <tr><td>${esc(r.qid)}</td><td>${r.level ?? ""}</td><td>${r.outcome === "wrong" ? "❌ tasemetest" : r.outcome === "correct" ? (r.tries === 1 && !r.hints ? "✅ puhtalt" : `✅ ${r.tries}. katse${r.hints ? ", " + r.hints + " vihjet" : ""}`) : "👀 vaatas lahendust"}</td><td>${Math.round(r.seconds / 60)} min</td></tr>`).join("")}</table>` : `<p class="muted">Veel pole midagi lahendatud.</p>`}</div>
     <div class="card"><h3>Mida ta õpetajalt küsis</h3>${s.chats.length ? s.chats.map((c) => `<p class="small"><span class="muted">${esc(c.created_at.slice(5, 16))}</span> ${esc(c.content.slice(0, 160))}</p>`).join("") : `<p class="muted">Veel küsimusi pole.</p>`}</div>`;
   }).join("") + `
     <h2>Seaded</h2>
