@@ -30,7 +30,10 @@ async function tutor(body, onText) {
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + store.get("token") },
     body: JSON.stringify(body),
   });
-  if (!res.ok || !res.body) throw new Error("Õpetajaga ei saanud ühendust");
+  if (!res.ok || !res.body) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Õpetajaga ei saanud ühendust");
+  }
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = "", full = "";
