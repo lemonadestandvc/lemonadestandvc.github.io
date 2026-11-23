@@ -298,7 +298,7 @@ async function viewPractice(params) {
   const { q, review } = params.get("id") ? await api("/question?id=" + params.get("id")) : await api("/next?" + qs);
   const sub = META.subtopics[q.subtopic];
   const card = META.cards.find((c) => c.subtopic === q.subtopic);
-  const st = { tries: 0, hints: 0, wrong: [], done: false, chat: [] };
+  const st = { tries: 0, hints: 0, hintsGiven: 0, wrong: [], done: false, chat: [] };
   startQuestion(q.level);
 
   $app.innerHTML = `
@@ -332,7 +332,7 @@ async function viewPractice(params) {
   if (card) setRich(document.getElementById("cardbody"), card.body);
 
   const $ans = document.getElementById("ans"), $fb = document.getElementById("fb"), $chat = document.getElementById("chat");
-  const ctx = () => ({ wrong: st.wrong, hints: st.hints });
+  const ctx = () => ({ wrong: st.wrong, hints: st.hintsGiven });
 
   async function ask(mode, text) {
     if (text) { st.chat.push({ role: "user", content: text }); $chat.append(h(`<div class="msg me">${esc(text)}</div>`)); }
@@ -388,10 +388,12 @@ async function viewPractice(params) {
     } catch (e) { $fb.innerHTML = `<div class="feedback bad">${esc(e.message)}</div>`; }
   };
   $ans.addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("check").click(); });
-  document.querySelectorAll("[data-mode]").forEach((b) => (b.onclick = () => {
-    if (b.dataset.mode === "hint") st.hints++;
-    else st.hints += 2; // a full lesson counts as two hints for the level estimate
-    ask(b.dataset.mode, b.dataset.mode === "hint" ? (st.hints > 1 ? "Anna palun veel üks vihje." : "Anna palun vihje.") : "Mul pole aimugi, kust alustada. Õpeta mind, aga ära ütle vastust.");
+  document.querySelectorAll("[data-mode]").forEach((b) => (b.onclick = async () => {
+    const hint = b.dataset.mode === "hint";
+    // The tutor is told how many hints came BEFORE this one (st.hintsGiven);
+    // st.hints is the score penalty, where a full lesson counts as two hints.
+    await ask(b.dataset.mode, hint ? (st.hintsGiven ? "Anna palun veel üks vihje." : "Anna palun vihje.") : "Mul pole aimugi, kust alustada. Õpeta mind, aga ära ütle vastust.");
+    if (hint) { st.hints++; st.hintsGiven++; } else st.hints += 2;
   }));
   document.getElementById("reveal").onclick = () => { if (confirm("Näidata lahendust? Ülesanne tuleb hiljem kordamiseks tagasi.")) finish("revealed"); };
 
