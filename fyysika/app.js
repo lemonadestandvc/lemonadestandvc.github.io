@@ -250,6 +250,7 @@ function testQuestion(q, progress) {
     <div class="card">
       <p class="muted small">${esc(sub.title)}</p>
       <div class="qtext" id="qt"></div>
+      ${figure(q)}
       <div class="answer-row"><input id="ans" inputmode="decimal" autocomplete="off" placeholder="Vastus"><span class="unit">${esc(q.unit)}</span></div>
       <p class="err" id="terr"></p>
       <div class="grid2" style="margin-top:10px"><button class="ghost" id="skip">Ei oska</button><button id="send">Vasta</button></div>
@@ -304,6 +305,7 @@ async function viewPractice(params) {
     </div>
     <div class="card">
       <div class="qtext" id="qt"></div>
+      ${figure(q)}
       <div class="answer-row" id="ansrow">
         <input id="ans" inputmode="decimal" autocomplete="off" placeholder="Vastus">
         <span class="unit">${esc(q.unit)}</span>
@@ -313,8 +315,10 @@ async function viewPractice(params) {
       <div class="tools" id="tools">
         <button class="soft" data-mode="hint">💡 Vihje</button>
         <button class="soft" data-mode="teach">🧑‍🏫 Õpeta mind</button>
+        <button class="soft" data-photo>📷 Hinda mu lahendust</button>
         <button class="ghost" id="reveal">Näita lahendust</button>
       </div>
+      <input type="file" id="photo" accept="image/*" multiple hidden>
       <div id="after"></div>
       <div class="chat" id="chat"></div>
       <div class="ask-row"><textarea id="askq" placeholder="Küsi midagi selle ülesande kohta…"></textarea><button id="asksend">Saada</button></div>
@@ -348,9 +352,10 @@ async function viewPractice(params) {
     openQuestion = null;
     const r = await api("/complete", { qid: q.id, outcome, tries: Math.max(1, st.tries), hints: st.hints, wrong: st.wrong, seconds });
     document.getElementById("ansrow").style.display = "none";
-    document.getElementById("tools").innerHTML = `<button class="soft" data-x="simpler">Selgita lihtsamalt</button><button class="soft" data-x="why">Miks just nii?</button><button class="soft" data-x="more">Räägi rohkem</button>`;
+    document.getElementById("tools").innerHTML = `<button class="soft" data-x="simpler">Selgita lihtsamalt</button><button class="soft" data-x="why">Miks just nii?</button><button class="soft" data-x="more">Räägi rohkem</button><button class="soft" data-photo>📷 Hinda mu lahendust</button>`;
     const prompts = { simpler: "Selgita seda lahendust palun lihtsamalt, nagu sõbrale.", why: "Miks tuli just nii lahendada? Kuidas ma järgmine kord ise selle peale tulen?", more: "Räägi mulle selle teema kohta rohkem. Kus seda päriselus kasutatakse?" };
     document.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => ask("explain", prompts[b.dataset.x])));
+    bindPhoto();
     const after = document.getElementById("after");
     after.innerHTML = `
       <div class="solution"><b>Vastus: ${fmtNum(r.answer.value)} ${esc(r.answer.unit)}</b><div id="sol"></div></div>
@@ -386,8 +391,59 @@ async function viewPractice(params) {
     ask(b.dataset.mode, b.dataset.mode === "hint" ? (st.hints > 1 ? "Anna palun veel üks vihje." : "Anna palun vihje.") : "Mul pole aimugi, kust alustada. Õpeta mind, aga ära ütle vastust.");
   }));
   document.getElementById("reveal").onclick = () => { if (confirm("Näidata lahendust? Ülesanne tuleb hiljem kordamiseks tagasi.")) finish("revealed"); };
+
+  // Photo of the handwritten solution, marked like the olympiad jury does.
+  const $photo = document.getElementById("photo");
+  function bindPhoto() { $app.querySelectorAll("[data-photo]").forEach((b) => (b.onclick = () => { $photo.value = ""; $photo.click(); })); }
+  bindPhoto();
+  $photo.onchange = async () => {
+    const files = [...$photo.files].slice(0, 3);
+    if (!files.length) return;
+    const bubble = h(`<div class="msg tutor cursor">Vaatan su lahendust läbi…</div>`);
+    $chat.append(bubble);
+    bubble.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    setBusy(true);
+    try {
+      const images = await Promise.all(files.map(shrinkImage));
+      const g = await api("/grade", { qid: q.id, images, done: st.done });
+      bubble.classList.remove("cursor");
+      bubble.innerHTML = gradeHtml(g);
+      typeset(bubble);
+      // Let follow-up questions in the chat know what the marker said.
+      st.chat.push({ role: "user", content: "Saatsin foto oma lahendusest." }, { role: "assistant", content: `Hinnang ${g.score}/10. ${g.summary} ${g.steps.map((s) => (s.ok ? "✓ " : "✗ ") + s.text).join(" ")} Soovitus: ${g.next_step}` });
+      if (g.final_answer_correct && !st.done) {
+        st.tries++;
+        $fb.innerHTML = `<div class="feedback good">Lõppvastus on õige!</div>`;
+        await finish("correct");
+      }
+    } catch (e) { bubble.classList.remove("cursor"); bubble.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+    setBusy(false);
+  };
   const $askq = document.getElementById("askq");
   document.getElementById("asksend").onclick = () => { const t = $askq.value.trim(); if (t) { $askq.value = ""; ask("chat", t); } };
+}
+
+function figure(q) {
+  return q.image ? `<a href="${esc(q.image)}" target="_blank" class="fig" title="Ava suurelt"><img src="${esc(q.image)}" alt="Ülesande joonis" loading="lazy"></a>` : "";
+}
+
+// Phone photos are 3–5 MB; scale to max 1600 px JPEG before sending.
+async function shrinkImage(file) {
+  const bmp = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => null);
+  const img = bmp || await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("Pilti ei saanud avada")); i.src = URL.createObjectURL(file); });
+  const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return { mediaType: "image/jpeg", data: c.toDataURL("image/jpeg", 0.82).split(",")[1] };
+}
+
+function gradeHtml(g) {
+  if (!g.readable) return `<b>Fotolt ei saa lahendust lugeda.</b><p>${rich(g.summary)}</p>`;
+  return `<div class="row"><b class="serif grow">Hinnang: ${g.score}/10</b>${g.final_answer_seen ? `<span class="small muted">vastus: ${esc(g.final_answer_seen)} ${g.final_answer_correct ? "✓" : "✗"}</span>` : ""}</div>
+    <div class="bar"><i style="width:${g.score * 10}%"></i></div>
+    <ul class="steps">${g.steps.map((s) => `<li class="${s.ok ? "ok" : "no"}">${rich(s.text).replace(/^<p>|<\/p>\s*$/g, "")}</li>`).join("")}</ul>
+    <div>${rich(g.summary)}</div><div class="small"><b>Järgmine samm:</b> ${rich(g.next_step).replace(/^<p>|<\/p>\s*$/g, "")}</div>`;
 }
 
 // ------------------------------------------------------------ theory cards
@@ -407,15 +463,21 @@ function viewAsk() {
   const about = new URLSearchParams(location.hash.split("?")[1] || "").get("about");
   const card = META.cards.find((c) => c.id === about);
   const chat = [];
+  // Suggestions are tap-to-send chips, so the text field is always empty and ready for typing.
+  const ideas = card
+    ? [`Selgita mulle teemat „${card.title}“ lihtsalt ja too näide.`, `Millised on tüüpilised vead teemas „${card.title}“?`, `Anna mulle üks harjutusülesanne teemal „${card.title}“.`]
+    : ["Mis vahe on soojusel ja temperatuuril?", "Miks rööpühenduses kogutakistus väheneb?", "Kuidas olümpiaadiülesannet lahendama hakata?"];
   $app.innerHTML = `<h1>Küsi õpetajalt</h1>
-    <p class="muted">Küsi ükskõik mida füüsika või matemaatika kohta. Näiteks: „Mis vahe on soojusel ja temperatuuril?“</p>
+    <p class="muted">Küsi ükskõik mida füüsika või matemaatika kohta.</p>
+    <div class="chips" id="chips">${ideas.map((t) => `<button class="chip">${esc(t)}</button>`).join("")}</div>
     <div class="chat" id="chat"></div>
     <div class="ask-row"><textarea id="askq" placeholder="Sinu küsimus…"></textarea><button id="asksend">Saada</button></div>`;
   const $chat = document.getElementById("chat"), $q = document.getElementById("askq"), $b = document.getElementById("asksend");
-  if (card) $q.value = `Selgita mulle teemat „${card.title}“ lihtsalt ja too näide.`;
+  $app.querySelectorAll(".chip").forEach((c) => (c.onclick = () => { $q.value = c.textContent; document.getElementById("chips").remove(); $b.click(); }));
   $b.onclick = async () => {
     const t = $q.value.trim();
     if (!t) return;
+    document.getElementById("chips")?.remove();
     $q.value = "";
     chat.push({ role: "user", content: t });
     $chat.append(h(`<div class="msg me">${esc(t)}</div>`));
@@ -460,6 +522,7 @@ async function viewParent() {
       <div class="sub"><div class="row"><span class="grow">${esc(META.subtopics[k].title)}</span><span class="small muted">${levelName(st.rating)} · ${st.done}/${st.total}</span></div><div class="bar"><i style="width:${pct(st.rating)}%"></i></div></div>`).join("")}</div>
     <div class="card"><h3>Viimased ülesanded</h3>${s.recent.length ? `<table><tr><th>Ül.</th><th>Tase</th><th>Tulemus</th><th>Aeg</th></tr>${s.recent.map((r) => `
       <tr><td>${esc(r.qid)}</td><td>${r.level ?? ""}</td><td>${r.outcome === "wrong" ? "❌ tasemetest" : r.outcome === "correct" ? (r.tries === 1 && !r.hints ? "✅ puhtalt" : `✅ ${r.tries}. katse${r.hints ? ", " + r.hints + " vihjet" : ""}`) : "👀 vaatas lahendust"}</td><td>${Math.round(r.seconds / 60)} min</td></tr>`).join("")}</table>` : `<p class="muted">Veel pole midagi lahendatud.</p>`}</div>
+    <div class="card"><h3>Pildistatud lahendused</h3>${s.solutions.length ? s.solutions.map((x) => `<p class="small"><b>${esc(x.qid)}: ${x.score}/10</b> ${x.final_correct ? "✓" : "✗"} <span class="muted">${esc(x.created_at.slice(5, 16))}</span><br>${esc(x.summary)}</p>`).join("") : `<p class="muted">Veel pole ühtegi lahendust pildistatud.</p>`}</div>
     <div class="card"><h3>Mida ta õpetajalt küsis</h3>${s.chats.length ? s.chats.map((c) => `<p class="small"><span class="muted">${esc(c.created_at.slice(5, 16))}</span> ${esc(c.content.slice(0, 160))}</p>`).join("") : `<p class="muted">Veel küsimusi pole.</p>`}</div>`;
   }).join("") + `
     <h2>Seaded</h2>
