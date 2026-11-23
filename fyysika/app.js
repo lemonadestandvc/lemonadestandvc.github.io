@@ -424,7 +424,7 @@ async function viewPractice(params) {
 }
 
 function figure(q) {
-  return q.image ? `<a href="${esc(q.image)}" target="_blank" class="fig" title="Ava suurelt"><img src="${esc(q.image)}" alt="Ülesande joonis" loading="lazy"></a>` : "";
+  return q.image ? `<a href="${esc(q.image)}" target="_blank" class="fig${q.image.endsWith(".svg") ? " svg" : ""}" title="Ava suurelt"><img src="${esc(q.image)}" alt="Ülesande joonis" loading="lazy"></a>` : "";
 }
 
 // Phone photos are 3–5 MB; scale to max 1600 px JPEG before sending.
@@ -522,7 +522,12 @@ async function viewParent() {
       <div class="sub"><div class="row"><span class="grow">${esc(META.subtopics[k].title)}</span><span class="small muted">${levelName(st.rating)} · ${st.done}/${st.total}</span></div><div class="bar"><i style="width:${pct(st.rating)}%"></i></div></div>`).join("")}</div>
     <div class="card"><h3>Viimased ülesanded</h3>${s.recent.length ? `<table><tr><th>Ül.</th><th>Tase</th><th>Tulemus</th><th>Aeg</th></tr>${s.recent.map((r) => `
       <tr><td>${esc(r.qid)}</td><td>${r.level ?? ""}</td><td>${r.outcome === "wrong" ? "❌ tasemetest" : r.outcome === "correct" ? (r.tries === 1 && !r.hints ? "✅ puhtalt" : `✅ ${r.tries}. katse${r.hints ? ", " + r.hints + " vihjet" : ""}`) : "👀 vaatas lahendust"}</td><td>${Math.round(r.seconds / 60)} min</td></tr>`).join("")}</table>` : `<p class="muted">Veel pole midagi lahendatud.</p>`}</div>
-    <div class="card"><h3>Pildistatud lahendused</h3>${s.solutions.length ? s.solutions.map((x) => `<p class="small"><b>${esc(x.qid)}: ${x.score}/10</b> ${x.final_correct ? "✓" : "✗"} <span class="muted">${esc(x.created_at.slice(5, 16))}</span><br>${esc(x.summary)}</p>`).join("") : `<p class="muted">Veel pole ühtegi lahendust pildistatud.</p>`}</div>
+    <div class="card"><h3>Pildistatud lahendused</h3>${s.solutions.length ? s.solutions.map((x) => `
+      <details class="sol"><summary><b>${esc(x.qid)}: ${x.score}/10</b> ${x.final_correct ? "✓" : "✗"} <span class="muted small">${esc(x.created_at.slice(5, 16))}</span><br><span class="small">${esc(x.summary)}</span></summary>
+        <div class="thumbs">${x.photos.map((k) => `<a data-photo-key="${esc(k)}" href="#"><img alt="Lahenduse foto"></a>`).join("")}</div>
+        <ul class="steps small">${(x.steps || []).map((st) => `<li class="${st.ok ? "ok" : "no"}">${esc(st.text)}</li>`).join("")}</ul>
+        ${x.next_step ? `<p class="small"><b>Soovitus:</b> ${esc(x.next_step)}</p>` : ""}
+      </details>`).join("") : `<p class="muted">Veel pole ühtegi lahendust pildistatud.</p>`}</div>
     <div class="card"><h3>Mida ta õpetajalt küsis</h3>${s.chats.length ? s.chats.map((c) => `<p class="small"><span class="muted">${esc(c.created_at.slice(5, 16))}</span> ${esc(c.content.slice(0, 160))}</p>`).join("") : `<p class="muted">Veel küsimusi pole.</p>`}</div>`;
   }).join("") + `
     <h2>Seaded</h2>
@@ -535,6 +540,19 @@ async function viewParent() {
     </div>
     <p class="center"><a href="#" id="out" class="muted small">Logi välja</a></p>`;
   document.getElementById("out").onclick = (e) => { e.preventDefault(); logout(); };
+  // Photos need the auth header, so load them as blobs when a solution is opened.
+  $app.querySelectorAll("details.sol").forEach((d) => d.addEventListener("toggle", () => {
+    if (!d.open) return;
+    d.querySelectorAll("[data-photo-key]").forEach(async (a) => {
+      if (a.dataset.loaded) return;
+      a.dataset.loaded = "1";
+      const res = await fetch(API + "/api/photo?key=" + encodeURIComponent(a.dataset.photoKey), { headers: { Authorization: "Bearer " + store.get("token") } });
+      if (!res.ok) { a.textContent = "Foto puudub"; return; }
+      const src = URL.createObjectURL(await res.blob());
+      a.querySelector("img").src = src;
+      a.href = src; a.target = "_blank";
+    });
+  }));
   document.getElementById("savegoal").onclick = async () => { await api("/goal", { minutes: +document.getElementById("goal").value }); route(); };
   $app.querySelectorAll("[data-rename]").forEach((b) => (b.onclick = async () => {
     await api("/rename", { profile: b.dataset.rename, name: $app.querySelector(`[data-name="${b.dataset.rename}"]`).value });

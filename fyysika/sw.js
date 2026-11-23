@@ -1,5 +1,5 @@
 // Network first for the app shell, cache as offline fallback. API calls are never cached.
-const CACHE = "fyysika-v5";
+const CACHE = "fyysika-v6";
 const SHELL = ["./", "index.html", "app.js", "style.css", "manifest.webmanifest", "icon-192.png"];
 
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))); self.skipWaiting(); });

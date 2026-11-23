@@ -134,6 +134,12 @@ input:focus, textarea:focus { outline: 2px solid var(--soul-dim); border-color: 
 /* Figures are black-on-white scans: show them on a light plate so they stay readable. */
 .fig { display: block; background: #f4f1e8; border-radius: 10px; padding: 8px; margin: 0 0 14px; border: 1px solid var(--gold); }
 .fig img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.fig.svg { background: none; padding: 0; overflow: hidden; border-color: var(--line); }
+.fig.svg img { width: 100%; max-width: 440px; }
+details.sol { border-top: 1px solid var(--line); padding: 8px 0; }
+details.sol > summary { cursor: pointer; list-style: none; }
+.thumbs { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+.thumbs img { width: 120px; height: 160px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: #0e1527; }
 .steps { list-style: none; padding: 0; margin: 8px 0; }
 .steps li { padding-left: 22px; position: relative; margin-bottom: 4px; }
 .steps li::before { position: absolute; left: 0; font-weight: 700; }
