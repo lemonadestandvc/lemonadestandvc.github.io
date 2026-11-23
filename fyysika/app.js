@@ -72,16 +72,39 @@ function setRich(el, text) { el.innerHTML = rich(text); typeset(el); }
 const fmtNum = (x) => String(Number(Number(x).toPrecision(3))).replace(".", ",");
 const pct = (rating) => Math.max(0, Math.min(100, Math.round(((rating - 0.5) / 5) * 100)));
 const levelName = (r) => (r < 1.5 ? "algaja" : r < 2.5 ? "põhitase" : r < 3.5 ? "kooliolümpiaad" : r < 4.5 ? "piirkonnavoor" : "lõppvoor");
+// Streak as a row of masks: one filled per day in the current 7-day stretch.
+const MASK = `<path fill-rule="evenodd" d="M8 2 C3.5 2 1.5 5.5 1.5 9.5 C1.5 14 4.5 17 8 17 C11.5 17 14.5 14 14.5 9.5 C14.5 5.5 12.5 2 8 2 Z M5.5 7.5 a1.4 2.4 0 1 0 0.01 0 Z M10.5 7.5 a1.4 2.4 0 1 0 0.01 0 Z M3 4 L2 0.5 L5.5 3 Z M13 4 L14 0.5 L10.5 3 Z"/>`;
+function masks(streak) {
+  const on = streak % 7 || (streak ? 7 : 0);
+  let out = "";
+  for (let i = 0; i < 7; i++) out += `<svg viewBox="0 0 16 18" class="${i < on ? "on" : "off"}">${MASK}</svg>`;
+  return `<div class="masks" aria-label="${streak} päeva järjest">${out}${streak >= 7 ? `<span class="small" style="color:var(--gold);margin-left:4px">×${Math.floor(streak / 7)} nädalat</span>` : ""}</div>`;
+}
 const daysTo = (d) => Math.ceil((new Date(d + "T09:00:00+02:00") - Date.now()) / 86400e3);
 
-// ------------------------------------------------------------ active-time heartbeat
+// ------------------------------------------------------------ study time
+// Two ways time is counted:
+// 1. While a question is open, the time from opening it to answering counts, up to a cap
+//    by level (work on paper counts even if the phone is locked). The server adds it on answer.
+// 2. Elsewhere (theory, chat, solutions) 30 s heartbeats count while the page is visible
+//    and touched in the last 2 minutes, so a sandwich break is not counted.
 let lastInput = Date.now();
+let openQuestion = null; // { start, level }
 ["pointerdown", "keydown", "scroll", "touchstart"].forEach((e) => addEventListener(e, () => (lastInput = Date.now()), { passive: true }));
 setInterval(() => {
-  if (!store.get("token") || document.hidden) return;
-  if (Date.now() - lastInput > 3 * 60e3) return; // idle: reading a long explanation still counts for 3 min
+  if (!store.get("token") || document.hidden || openQuestion) return;
+  if (Date.now() - lastInput > 2 * 60e3) return;
   api("/heartbeat", { seconds: 30 }).catch(() => {});
 }, 30e3);
+function startQuestion(level) { openQuestion = { start: Date.now(), level }; }
+function questionSeconds() { return openQuestion ? Math.round((Date.now() - openQuestion.start) / 1000) : 0; }
+// Leaving a question unanswered still credits the (capped) time spent on it.
+function abandonQuestion() {
+  if (!openQuestion) return;
+  const seconds = questionSeconds(), level = openQuestion.level;
+  openQuestion = null;
+  if (seconds > 20) api("/heartbeat", { seconds, level, question: true }).catch(() => {});
+}
 
 // ------------------------------------------------------------ router
 function logout() { store.del("token"); store.del("me"); META = null; location.hash = "#/login"; }
@@ -94,6 +117,7 @@ async function route() {
   if (store.get("token") && !META) {
     try { META = await api("/meta"); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   }
+  abandonQuestion();
   renderNav(path, me);
   window.scrollTo(0, 0);
   try {
@@ -169,10 +193,11 @@ async function viewHome() {
     <h1>Tere, ${esc(me.name)}!</h1>
     ${testCard}
     <div class="card row">
-      <div class="ring" style="--p:${p}"><div>${mins}<small>/ ${s.today.goalMin} min</small></div></div>
+      <div class="vessel" style="--p:${p}" title="Tänased minutid"><div>${mins}<small>/ ${s.today.goalMin} min</small></div></div>
       <div class="grow">
-        ${next ? `<div><b>${esc(next.title)}</b> <span class="muted">${daysTo(next.date)} päeva pärast</span></div>` : ""}
-        <div class="muted small">${s.streak ? `🔥 ${s.streak} päeva järjest` : "Täna on hea päev alustamiseks"}${s.dueReviews ? ` · ${s.dueReviews} kordamist ootab` : ""}</div>
+        ${next ? `<div><b class="serif">${esc(next.title)}</b> <span class="muted">${daysTo(next.date)} päeva pärast</span></div>` : ""}
+        ${masks(s.streak)}
+        <div class="muted small">${s.streak ? `${s.streak} päeva järjest` : "Täna on hea päev alustamiseks"}${s.dueReviews ? ` · ${s.dueReviews} kordamist ootab` : ""}</div>
         <a class="btn block ${diag.status === "done" ? "accent" : "ghost"}" style="margin-top:10px" href="#/practice">${mins ? "Jätka trenni" : "Alusta tänast trenni"}</a>
       </div>
     </div>
@@ -217,7 +242,7 @@ async function viewTest() {
 }
 
 function testQuestion(q, progress) {
-  const start = Date.now();
+  startQuestion(q.level);
   const sub = META.subtopics[q.subtopic];
   $app.innerHTML = `
     <div class="row small" style="margin-bottom:6px"><span class="badge">Tasemetest</span><span class="muted grow">${progress.answered + 1}. küsimus (umbes ${progress.estimate}-st)</span></div>
@@ -236,7 +261,8 @@ function testQuestion(q, progress) {
     if (!skip && !$ans.value.trim()) return $ans.focus();
     $app.querySelectorAll("button").forEach((b) => (b.disabled = true));
     try {
-      const r = await api("/diag/answer", { qid: q.id, value: $ans.value.trim(), skip, seconds: Math.round((Date.now() - start) / 1000) });
+      const r = await api("/diag/answer", { qid: q.id, value: $ans.value.trim(), skip, seconds: questionSeconds() });
+      openQuestion = null;
       window.scrollTo(0, 0);
       r.done ? testResults(r.results) : testQuestion(r.q, r.progress);
     } catch (e) {
@@ -268,7 +294,8 @@ async function viewPractice(params) {
   const { q, review } = params.get("id") ? await api("/question?id=" + params.get("id")) : await api("/next?" + qs);
   const sub = META.subtopics[q.subtopic];
   const card = META.cards.find((c) => c.subtopic === q.subtopic);
-  const st = { tries: 0, hints: 0, wrong: [], start: Date.now(), done: false, chat: [] };
+  const st = { tries: 0, hints: 0, wrong: [], done: false, chat: [] };
+  startQuestion(q.level);
 
   $app.innerHTML = `
     <div class="row wrap small" style="margin-bottom:6px">
@@ -317,7 +344,9 @@ async function viewPractice(params) {
 
   async function finish(outcome) {
     st.done = true;
-    const r = await api("/complete", { qid: q.id, outcome, tries: Math.max(1, st.tries), hints: st.hints, wrong: st.wrong, seconds: Math.round((Date.now() - st.start) / 1000) });
+    const seconds = questionSeconds();
+    openQuestion = null;
+    const r = await api("/complete", { qid: q.id, outcome, tries: Math.max(1, st.tries), hints: st.hints, wrong: st.wrong, seconds });
     document.getElementById("ansrow").style.display = "none";
     document.getElementById("tools").innerHTML = `<button class="soft" data-x="simpler">Selgita lihtsamalt</button><button class="soft" data-x="why">Miks just nii?</button><button class="soft" data-x="more">Räägi rohkem</button>`;
     const prompts = { simpler: "Selgita seda lahendust palun lihtsamalt, nagu sõbrale.", why: "Miks tuli just nii lahendada? Kuidas ma järgmine kord ise selle peale tulen?", more: "Räägi mulle selle teema kohta rohkem. Kus seda päriselus kasutatakse?" };
