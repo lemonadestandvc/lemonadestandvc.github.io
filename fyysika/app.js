@@ -181,7 +181,7 @@ async function viewHome() {
       <h3>${diag.status === "open" ? "Tasemetest on pooleli" : "Alusta tasemetestiga"}</h3>
       <p class="small">${diag.status === "open"
         ? `Vastatud ${diag.progress.answered} küsimust umbes ${diag.progress.estimate}-st.`
-        : "Umbes 12 ülesannet (30–40 min), vihjeid ei ole. Iga vastus mõjutab, kui raske on järgmine küsimus. Selle järgi valib äpp, kust alustada."}</p>
+        : "Umbes 19 ülesannet (45–60 min, võib teha mitmes osas), vihjeid ei ole. Iga vastus mõjutab, kui raske on järgmine küsimus. Selle järgi valib äpp, kust alustada."}</p>
       <a class="btn block accent" href="#/test">${diag.status === "open" ? "Jätka testi" : "Tee tasemetest"}</a>
     </div>`;
   const mins = Math.round(s.today.seconds / 60);
@@ -229,7 +229,7 @@ async function viewTest() {
   if (st.status === "done" && !again) return testResults(st.results);
   $app.innerHTML = `<h1>Tasemetest</h1>
     <div class="card">
-      <p>Test näitab, kui kaugel sa soojus- ja elektriõpetuses oled. Umbes 12 ülesannet, 30–40 minutit.</p>
+      <p>Test näitab, kui kaugel sa soojusõpetuses, elektriõpetuses, mehaanikas ja optikas oled. Umbes 19 ülesannet, 45–60 minutit. Võid teha mitmes osas.</p>
       <ul>
         <li>Vihjeid ja õpetajat testi ajal ei ole.</li>
         <li>Kui vastad õigesti, on järgmine ülesanne raskem; kui valesti, lihtsam. Seega on raskeid ülesandeid tavaline mitte osata.</li>
@@ -371,7 +371,10 @@ async function viewPractice(params) {
         await finish("correct");
       } else {
         st.wrong.push(v + " " + q.unit);
-        $fb.innerHTML = `<div class="feedback bad">Pole päris õige (${st.tries}. katse). Kontrolli ühikuid ja arvutust või küsi vihjet.</div>`;
+        const why = r.note === "sign" ? "Arv on õige, aga märk mitte. Mõtle, kas suurus peaks olema negatiivne."
+          : r.note === "unit" ? `Arvutus näib õige, aga vastus on vales ühikus. Vastus peab olema ühikutes <b>${esc(q.unit)}</b>.`
+          : "Kontrolli arvutust või küsi vihjet.";
+        $fb.innerHTML = `<div class="feedback bad">Pole päris õige (${st.tries}. katse). ${why}</div>`;
         $ans.select();
       }
     } catch (e) { $fb.innerHTML = `<div class="feedback bad">${esc(e.message)}</div>`; }
