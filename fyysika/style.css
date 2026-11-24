@@ -195,3 +195,17 @@ td, th { text-align: left; padding: 6px 4px; border-top: 1px solid var(--line); 
 .mustphoto { margin-top: 12px; padding: 12px; border: 1px solid var(--gold); border-radius: 12px; }
 .mustphoto p { margin: 6px 0 10px; }
 [hidden] { display: none !important; }
+
+/* units compendium */
+#usearch { width: 100%; margin-bottom: 12px; }
+.unitsym { font-family: "Cinzel", serif; font-weight: 700; color: var(--gold); margin-right: 4px; }
+.unithead { margin: 0 0 6px; font-size: 20px; }
+.unitnote { color: var(--soul); font-weight: 600; margin: 0 0 8px; }
+.unitbody p { margin: 6px 0; }
+.unitlink { background: transparent; border: 0; border-bottom: 1px dashed var(--muted); border-radius: 0; padding: 0 2px; min-height: 0; font-size: inherit; cursor: pointer; }
+.sheet { position: fixed; inset: 0; background: rgba(5, 8, 15, .6); display: flex; align-items: flex-end; justify-content: center; z-index: 50; }
+.sheetcard { position: relative; background: var(--card, #141c2b); border: 1px solid #2a3a52; border-radius: 16px 16px 0 0; width: 100%; max-width: 640px; max-height: 82vh; display: flex; flex-direction: column; }
+.sheetbody { overflow-y: auto; padding: 18px 16px 28px; }
+.sheetclose { position: absolute; top: 8px; right: 8px; min-height: 0; padding: 4px 10px; z-index: 1; }
+#nav a { white-space: nowrap; }
+@media (max-width: 420px) { #nav { gap: 10px; } #nav a { font-size: 14px; } }

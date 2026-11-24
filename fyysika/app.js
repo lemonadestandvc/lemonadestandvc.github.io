@@ -121,6 +121,7 @@ async function route() {
     try { META = await api("/meta"); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   }
   abandonQuestion();
+  document.getElementById("usheet")?.remove();
   renderNav(path, me);
   window.scrollTo(0, 0);
   try {
@@ -128,6 +129,7 @@ async function route() {
     if (path === "/practice") return await viewPractice(params);
     if (path === "/test") return await viewTest();
     if (path === "/cards") return viewCards(params);
+    if (path === "/units") return viewUnits(params);
     if (path === "/ask") return viewAsk();
     if (path === "/parent") return await viewParent();
     return me?.role === "parent" && !params.has("own") ? await viewParent() : await viewHome();
@@ -138,8 +140,8 @@ async function route() {
 function renderNav(path, me) {
   if (!me) { $nav.innerHTML = ""; return; }
   const links = me.role === "parent"
-    ? [["/parent", "Ülevaade"], ["/?own=1", "Proovi ise"], ["/cards", "Teooria"]]
-    : [["/", "Kodu"], ["/cards", "Teooria"], ["/ask", "Küsi"]];
+    ? [["/parent", "Ülevaade"], ["/?own=1", "Proovi ise"], ["/cards", "Teooria"], ["/units", "Ühikud"]]
+    : [["/", "Kodu"], ["/cards", "Teooria"], ["/units", "Ühikud"], ["/ask", "Küsi"]];
   $nav.innerHTML = links.map(([href, label]) => `<a href="#${href}" class="${path === href.split("?")[0] ? "on" : ""}">${label}</a>`).join("");
 }
 addEventListener("hashchange", route);
@@ -254,7 +256,7 @@ function testQuestion(q, progress) {
       <p class="muted small">${esc(sub.title)}</p>
       <div class="qtext" id="qt"></div>
       ${figure(q)}
-      <div class="answer-row"><input id="ans" inputmode="decimal" autocomplete="off" placeholder="Vastus"><span class="unit">${esc(q.unit)}</span></div>
+      <div class="answer-row"><input id="ans" inputmode="decimal" autocomplete="off" placeholder="Vastus">${unitTag(q.unit)}</div>
       ${NUMKEYS}
       <p class="err" id="terr"></p>
       <div class="grid2" style="margin-top:10px"><button class="ghost" id="skip">Ei oska</button><button id="send">Vasta</button></div>
@@ -263,6 +265,7 @@ function testQuestion(q, progress) {
   setRich(document.getElementById("qt"), q.text);
   const $ans = document.getElementById("ans");
   wireNumKeys($ans);
+  wireUnitTags();
   const submit = async (skip) => {
     if (!skip && !$ans.value.trim()) return $ans.focus();
     $app.querySelectorAll("button").forEach((b) => (b.disabled = true));
@@ -336,7 +339,7 @@ async function viewPractice(params) {
       ${figure(q)}
       <div class="answer-row" id="ansrow">
         <input id="ans" inputmode="decimal" autocomplete="off" placeholder="Vastus">
-        <span class="unit">${esc(q.unit)}</span>
+        ${unitTag(q.unit)}
         <button id="check">Kontrolli</button>
       </div>
       ${NUMKEYS}
@@ -359,6 +362,7 @@ async function viewPractice(params) {
 
   const $ans = document.getElementById("ans"), $fb = document.getElementById("fb"), $chat = document.getElementById("chat");
   wireNumKeys($ans);
+  wireUnitTags();
   const ctx = () => ({ wrong: st.wrong, hints: st.hintsGiven });
 
   async function ask(mode, text) {
@@ -381,7 +385,7 @@ async function viewPractice(params) {
     const seconds = questionSeconds();
     openQuestion = null;
     const r = await api("/complete", { qid: q.id, outcome, tries: Math.max(1, st.tries), hints: st.hints, wrong: st.wrong, seconds });
-    showDone(r, outcome === "correct" && !st.photoOk);
+    showDone(r, outcome === "correct" && !st.photoOk && q.level >= 2);
   }
 
   // After the answer: solution, follow-up buttons and the way on. needPhoto locks the way on
@@ -522,13 +526,74 @@ function viewCards(params) {
   $app.querySelectorAll("[data-card]").forEach((el) => setRich(el, META.cards.find((c) => c.id === el.dataset.card).body));
 }
 
+// ------------------------------------------------------------ units compendium
+const unitById = (id) => META.units.find((u) => u.id === id);
+function unitHtml(u, from) {
+  const note = from && u.aliases[from] ? `<p class="unitnote">${esc(u.aliases[from])}</p>` : "";
+  return `<h2 class="unithead"><span class="unitsym">${esc(u.sym)}</span> · ${esc(u.name)}</h2>${note}
+    <div class="unitbody" data-ubody="${u.id}"></div>
+    <p class="small" style="margin-top:12px"><b>Seotud:</b> ${u.related.map((r) => { const x = unitById(r); return `<a href="#/units?id=${x.id}" data-uref="${x.id}">${esc(x.sym)}</a>`; }).join(" · ")}</p>`;
+}
+function fillUnit(root, u) { setRich(root.querySelector(`[data-ubody="${u.id}"]`), u.body); }
+
+function viewUnits(params) {
+  const openId = params.get("id");
+  $app.innerHTML = `<h1>Ühikud</h1>
+    <input id="usearch" type="search" placeholder="Otsi: W, rõhk, kWh…" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div id="ulist"></div>`;
+  const $list = document.getElementById("ulist"), $s = document.getElementById("usearch");
+  const norm = (t) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const render = () => {
+    const t = norm($s.value.trim());
+    const hits = META.units.filter((u) => !t || [u.sym, u.name, u.qty, ...Object.keys(u.aliases)].some((x) => norm(x).includes(t)));
+    $list.innerHTML = hits.map((u) => `<details class="card" id="u-${u.id}" ${u.id === openId ? "open" : ""}>
+      <summary><span class="unitsym">${esc(u.sym)}</span> <span class="muted">${esc(u.name)} · ${esc(u.qty)}</span></summary>
+      <div class="ubox"></div></details>`).join("") || `<p class="muted">Sellist ühikut ei leidnud.</p>`;
+    $list.querySelectorAll("details").forEach((d) => {
+      const fill = () => { const box = d.querySelector(".ubox"); if (box.childElementCount) return; const u = unitById(d.id.slice(2));
+        box.innerHTML = unitHtml(u) + `<a class="btn ghost block" style="margin-top:10px" href="#/ask?unit=${u.id}">Küsi selle kohta</a>`; fillUnit(box, u); };
+      if (d.open) fill();
+      d.addEventListener("toggle", () => d.open && fill());
+    });
+  };
+  $s.oninput = render;
+  render();
+  if (openId) document.getElementById("u-" + openId)?.scrollIntoView({ block: "start" });
+}
+
+// The unit next to an answer field opens its entry in a sheet, so the problem stays open.
+function unitTag(sym) {
+  const id = META.unitIndex[sym];
+  return id ? `<button type="button" class="unit unitlink" data-unit="${esc(sym)}">${esc(sym)}</button>` : `<span class="unit">${esc(sym)}</span>`;
+}
+function wireUnitTags() {
+  document.querySelectorAll("[data-unit]").forEach((b) => (b.onclick = () => openUnitSheet(META.unitIndex[b.dataset.unit], b.dataset.unit)));
+}
+function openUnitSheet(id, from) {
+  document.getElementById("usheet")?.remove();
+  const sheet = h(`<div class="sheet" id="usheet"><div class="sheetcard"><button class="ghost sheetclose" aria-label="Sulge">✕</button><div class="sheetbody"></div></div></div>`);
+  const show = (uid, f) => {
+    const u = unitById(uid), body = sheet.querySelector(".sheetbody");
+    body.innerHTML = unitHtml(u, f);
+    fillUnit(body, u);
+    body.querySelectorAll("[data-uref]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); show(a.dataset.uref); body.scrollTop = 0; }));
+  };
+  sheet.onclick = (e) => { if (e.target === sheet) sheet.remove(); };
+  sheet.querySelector(".sheetclose").onclick = () => sheet.remove();
+  document.body.append(sheet);
+  show(id, from);
+}
+
 // ------------------------------------------------------------ free chat
 function viewAsk() {
-  const about = new URLSearchParams(location.hash.split("?")[1] || "").get("about");
-  const card = META.cards.find((c) => c.id === about);
+  const hp = new URLSearchParams(location.hash.split("?")[1] || "");
+  const card = META.cards.find((c) => c.id === hp.get("about"));
+  const unit = META.units.find((u) => u.id === hp.get("unit"));
   const chat = [];
   // Suggestions are tap-to-send chips, so the text field is always empty and ready for typing.
-  const ideas = card
+  const ideas = unit
+    ? [`Selgita mulle ühikut ${unit.sym} (${unit.name}) lihtsalt ja too näide.`, `Kuidas ${unit.sym} on seotud teiste ühikutega? Näita, kuidas seda põhiühikutest tuletada.`, `Anna mulle üks ülesanne, kus on vaja ühikuga ${unit.sym} teisendada.`]
+    : card
     ? [`Selgita mulle teemat „${card.title}“ lihtsalt ja too näide.`, `Millised on tüüpilised vead teemas „${card.title}“?`, `Anna mulle üks harjutusülesanne teemal „${card.title}“.`]
     : ["Mis vahe on soojusel ja temperatuuril?", "Miks rööpühenduses kogutakistus väheneb?", "Kuidas olümpiaadiülesannet lahendama hakata?"];
   $app.innerHTML = `<h1>Küsi õpetajalt</h1>
