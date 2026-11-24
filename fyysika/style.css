@@ -115,6 +115,8 @@ input::placeholder, textarea::placeholder { color: #7b859b; }
 input:focus, textarea:focus { outline: 2px solid var(--soul-dim); border-color: transparent; box-shadow: 0 0 14px rgba(159, 216, 236, .25); }
 .answer-row { display: flex; gap: 8px; align-items: center; }
 .answer-row input { font-size: 20px; }
+.numkeys { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.numkeys button { min-width: 56px; padding: 6px 12px; font-size: 18px; }
 .unit { font-weight: 600; color: var(--muted); white-space: nowrap; }
 .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--gold); color: var(--gold); }
 .badge.review { border-color: var(--crimson-2); color: var(--crimson-2); }

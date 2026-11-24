@@ -255,12 +255,14 @@ function testQuestion(q, progress) {
       <div class="qtext" id="qt"></div>
       ${figure(q)}
       <div class="answer-row"><input id="ans" inputmode="decimal" autocomplete="off" placeholder="Vastus"><span class="unit">${esc(q.unit)}</span></div>
+      ${NUMKEYS}
       <p class="err" id="terr"></p>
       <div class="grid2" style="margin-top:10px"><button class="ghost" id="skip">Ei oska</button><button id="send">Vasta</button></div>
     </div>
     <p class="center"><a href="#/" class="muted small">Jätka hiljem</a></p>`;
   setRich(document.getElementById("qt"), q.text);
   const $ans = document.getElementById("ans");
+  wireNumKeys($ans);
   const submit = async (skip) => {
     if (!skip && !$ans.value.trim()) return $ans.focus();
     $app.querySelectorAll("button").forEach((b) => (b.disabled = true));
@@ -290,6 +292,28 @@ function testResults(results) {
     <a class="btn block accent" href="#/practice">Alusta trenni</a>`;
 }
 
+// The iPhone number pad has no minus sign or exponent, so the answer field gets two extra keys.
+const NUMKEYS = `<div class="numkeys"><button type="button" class="soft" data-ins="-">−</button><button type="button" class="soft" data-ins="e">·10ⁿ</button><span class="small muted">nt 6,2·10¹⁸ → 6,2e18</span></div>`;
+function wireNumKeys($ans) {
+  document.querySelectorAll(".numkeys [data-ins]").forEach((b) => {
+    b.addEventListener("pointerdown", (e) => e.preventDefault()); // keep the keyboard open
+    b.onclick = () => {
+      const ins = b.dataset.ins, v = $ans.value;
+      const at = $ans.selectionStart ?? v.length, end = $ans.selectionEnd ?? at;
+      if (ins === "-" && !/e$/i.test(v.slice(0, at))) {
+        // Outside an exponent the minus toggles the sign of the whole number.
+        $ans.value = v.startsWith("-") ? v.slice(1) : "-" + v;
+        const pos = Math.max(0, at + (v.startsWith("-") ? -1 : 1));
+        $ans.setSelectionRange(pos, pos);
+      } else {
+        $ans.value = v.slice(0, at) + ins + v.slice(end);
+        $ans.setSelectionRange(at + 1, at + 1);
+      }
+      $ans.focus();
+    };
+  });
+}
+
 // ------------------------------------------------------------ practice
 async function viewPractice(params) {
   const qs = new URLSearchParams();
@@ -314,6 +338,7 @@ async function viewPractice(params) {
         <span class="unit">${esc(q.unit)}</span>
         <button id="check">Kontrolli</button>
       </div>
+      ${NUMKEYS}
       <div id="fb"></div>
       <div class="tools" id="tools">
         <button class="soft" data-mode="hint">💡 Vihje</button>
@@ -332,6 +357,7 @@ async function viewPractice(params) {
   if (card) setRich(document.getElementById("cardbody"), card.body);
 
   const $ans = document.getElementById("ans"), $fb = document.getElementById("fb"), $chat = document.getElementById("chat");
+  wireNumKeys($ans);
   const ctx = () => ({ wrong: st.wrong, hints: st.hintsGiven });
 
   async function ask(mode, text) {
