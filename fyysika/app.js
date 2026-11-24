@@ -319,11 +319,12 @@ async function viewPractice(params) {
   const qs = new URLSearchParams();
   if (params.get("topic")) qs.set("topic", params.get("topic"));
   if (params.get("subtopic")) qs.set("subtopic", params.get("subtopic"));
-  const { q, review } = params.get("id") ? await api("/question?id=" + params.get("id")) : await api("/next?" + qs);
+  const nx = params.get("id") ? await api("/question?id=" + params.get("id")) : await api("/next?" + qs);
+  const { q, review } = nx;
   const sub = META.subtopics[q.subtopic];
   const card = META.cards.find((c) => c.subtopic === q.subtopic);
-  const st = { tries: 0, hints: 0, hintsGiven: 0, wrong: [], done: false, chat: [] };
-  startQuestion(q.level);
+  const st = { tries: 0, hints: 0, hintsGiven: 0, wrong: [], done: false, chat: [], photoOk: false, needPhoto: false };
+  if (!nx.needPhoto) startQuestion(q.level);
 
   $app.innerHTML = `
     <div class="row wrap small" style="margin-bottom:6px">
@@ -380,7 +381,16 @@ async function viewPractice(params) {
     const seconds = questionSeconds();
     openQuestion = null;
     const r = await api("/complete", { qid: q.id, outcome, tries: Math.max(1, st.tries), hints: st.hints, wrong: st.wrong, seconds });
+    showDone(r, outcome === "correct" && !st.photoOk);
+  }
+
+  // After the answer: solution, follow-up buttons and the way on. needPhoto locks the way on
+  // until a readable photo of the written solution has been marked.
+  function showDone(r, needPhoto) {
+    st.done = true;
+    st.needPhoto = needPhoto;
     document.getElementById("ansrow").style.display = "none";
+    document.querySelector(".numkeys")?.remove();
     document.getElementById("tools").innerHTML = `<button class="soft" data-x="simpler">Selgita lihtsamalt</button><button class="soft" data-x="why">Miks just nii?</button><button class="soft" data-x="more">Räägi rohkem</button><button class="soft" data-photo>📷 Hinda mu lahendust</button>`;
     const prompts = { simpler: "Selgita seda lahendust palun lihtsamalt, nagu sõbrale.", why: "Miks tuli just nii lahendada? Kuidas ma järgmine kord ise selle peale tulen?", more: "Räägi mulle selle teema kohta rohkem. Kus seda päriselus kasutatakse?" };
     document.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => ask("explain", prompts[b.dataset.x])));
@@ -388,10 +398,22 @@ async function viewPractice(params) {
     const after = document.getElementById("after");
     after.innerHTML = `
       <div class="solution"><b>Vastus: ${fmtNum(r.answer.value)} ${esc(r.answer.unit)}</b><div id="sol"></div></div>
-      <p class="small muted" style="margin-top:8px">Tase: ${levelName(r.rating)} ${r.delta >= 0 ? "▲" : "▼"}</p>
-      <a class="btn block" id="nextq" href="#">Järgmine ülesanne →</a>`;
+      ${r.rating != null ? `<p class="small muted" style="margin-top:8px">Tase: ${levelName(r.rating)} ${r.delta >= 0 ? "▲" : "▼"}</p>` : ""}
+      <div class="mustphoto" id="mustphoto" ${needPhoto ? "" : "hidden"}>
+        <b class="serif">📷 Nüüd pildista oma lahendus</b>
+        <p class="small">Olümpiaadil saab punkte lahenduskäigu eest, mitte ainult vastuse eest. Järgmine ülesanne avaneb, kui lahendus on hinnatud.</p>
+        <button class="accent block" data-photo>Pildista lahendus</button>
+      </div>
+      <a class="btn block" id="nextq" href="#" ${needPhoto ? "hidden" : ""}>Järgmine ülesanne →</a>`;
     setRich(document.getElementById("sol"), r.solution);
+    bindPhoto();
     document.getElementById("nextq").onclick = (e) => { e.preventDefault(); route(); };
+  }
+  function unlockNext(note) {
+    st.needPhoto = false;
+    document.getElementById("mustphoto")?.setAttribute("hidden", "");
+    const n = document.getElementById("nextq");
+    if (n) { n.hidden = false; if (note) n.insertAdjacentHTML("beforebegin", `<p class="small muted">${esc(note)}</p>`); }
   }
 
   document.getElementById("check").onclick = async () => {
@@ -442,14 +464,25 @@ async function viewPractice(params) {
       typeset(bubble);
       // Let follow-up questions in the chat know what the marker said.
       st.chat.push({ role: "user", content: "Saatsin foto oma lahendusest." }, { role: "assistant", content: `Hinnang ${g.score}/10. ${g.summary} ${g.steps.map((s) => (s.ok ? "✓ " : "✗ ") + s.text).join(" ")} Soovitus: ${g.next_step}` });
+      if (g.readable) st.photoOk = true;
+      if (g.readable && st.needPhoto) unlockNext();
+      else if (!g.readable && st.needPhoto) bubble.insertAdjacentHTML("beforeend", `<p class="small"><b>Pildista uuesti</b>, et järgmine ülesanne avaneks.</p>`);
       if (g.final_answer_correct && !st.done) {
         st.tries++;
         $fb.innerHTML = `<div class="feedback good">Lõppvastus on õige!</div>`;
         await finish("correct");
       }
-    } catch (e) { bubble.classList.remove("cursor"); bubble.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+    } catch (e) {
+      bubble.classList.remove("cursor"); bubble.innerHTML = `<span class="err">${esc(e.message)}</span>`;
+      // A marking outage or the daily limit must not block studying.
+      if (st.needPhoto) unlockNext("Hindamine ei õnnestunud, seekord võid edasi minna.");
+    }
     setBusy(false);
   };
+  if (nx.needPhoto) {
+    $fb.innerHTML = `<div class="feedback good">Selle ülesande vastus on õige. Enne järgmist ülesannet pildista oma lahendus.</div>`;
+    showDone({ answer: nx.answer, solution: nx.solution }, true);
+  }
   const $askq = document.getElementById("askq");
   document.getElementById("asksend").onclick = () => { const t = $askq.value.trim(); if (t) { $askq.value = ""; ask("chat", t); } };
 }

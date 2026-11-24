@@ -191,3 +191,7 @@ td, th { text-align: left; padding: 6px 4px; border-top: 1px solid var(--line); 
 .err { color: var(--bad); }
 @media (max-width: 380px) { .tools { grid-template-columns: 1fr 1fr; } }
 @media (prefers-reduced-motion: reduce) { body::before, .feedback.good { animation: none; } .vessel::before { transition: none; } }
+
+.mustphoto { margin-top: 12px; padding: 12px; border: 1px solid var(--gold); border-radius: 12px; }
+.mustphoto p { margin: 6px 0 10px; }
+[hidden] { display: none !important; }
