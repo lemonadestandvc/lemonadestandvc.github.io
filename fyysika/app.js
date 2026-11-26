@@ -121,7 +121,7 @@ async function route() {
     try { META = await api("/meta"); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   }
   abandonQuestion();
-  document.getElementById("usheet")?.remove();
+  closeUnitSheet();
   renderNav(path, me);
   window.scrollTo(0, 0);
   try {
@@ -143,6 +143,11 @@ function renderNav(path, me) {
     ? [["/parent", "Ülevaade"], ["/?own=1", "Proovi ise"], ["/cards", "Teooria"], ["/units", "Ühikud"]]
     : [["/", "Kodu"], ["/cards", "Teooria"], ["/units", "Ühikud"], ["/ask", "Küsi"]];
   $nav.innerHTML = links.map(([href, label]) => `<a href="#${href}" class="${path === href.split("?")[0] ? "on" : ""}">${label}</a>`).join("");
+  // On a problem the Ühikud tab opens the overlay instead of leaving the problem.
+  if (path === "/practice" || path === "/test") {
+    const a = $nav.querySelector('a[href="#/units"]');
+    if (a) a.onclick = (e) => { e.preventDefault(); openUnitSheet(); };
+  }
 }
 addEventListener("hashchange", route);
 addEventListener("DOMContentLoaded", route);
@@ -250,7 +255,7 @@ function testQuestion(q, progress) {
   startQuestion(q.level);
   const sub = META.subtopics[q.subtopic];
   $app.innerHTML = `
-    <div class="row small" style="margin-bottom:6px"><span class="badge">Tasemetest</span><span class="muted grow">${progress.answered + 1}. küsimus (umbes ${progress.estimate}-st)</span></div>
+    <div class="row small" style="margin-bottom:6px"><span class="badge">Tasemetest</span><span class="muted grow">${progress.answered + 1}. küsimus (umbes ${progress.estimate}-st)</span>${UNITS_BTN}</div>
     <div class="bar" style="margin-bottom:12px"><i style="width:${Math.round((progress.answered / progress.estimate) * 100)}%"></i></div>
     <div class="card">
       <p class="muted small">${esc(sub.title)}</p>
@@ -266,6 +271,7 @@ function testQuestion(q, progress) {
   const $ans = document.getElementById("ans");
   wireNumKeys($ans);
   wireUnitTags();
+  wireUnitsBtn();
   const submit = async (skip) => {
     if (!skip && !$ans.value.trim()) return $ans.focus();
     $app.querySelectorAll("button").forEach((b) => (b.disabled = true));
@@ -332,7 +338,7 @@ async function viewPractice(params) {
   $app.innerHTML = `
     <div class="row wrap small" style="margin-bottom:6px">
       <span class="badge">Tase ${q.level}</span>${review ? `<span class="badge review">Kordamine</span>` : ""}
-      <span class="muted">${esc(sub.title)}</span>
+      <span class="muted grow">${esc(sub.title)}</span>${UNITS_BTN}
     </div>
     <div class="card">
       <div class="qtext" id="qt"></div>
@@ -363,6 +369,7 @@ async function viewPractice(params) {
   const $ans = document.getElementById("ans"), $fb = document.getElementById("fb"), $chat = document.getElementById("chat");
   wireNumKeys($ans);
   wireUnitTags();
+  wireUnitsBtn();
   const ctx = () => ({ wrong: st.wrong, hints: st.hintsGiven });
 
   async function ask(mode, text) {
@@ -569,20 +576,50 @@ function unitTag(sym) {
 function wireUnitTags() {
   document.querySelectorAll("[data-unit]").forEach((b) => (b.onclick = () => openUnitSheet(META.unitIndex[b.dataset.unit], b.dataset.unit)));
 }
+// Opens the compendium over the current page: a searchable list, or one entry when id is given.
+// Closing returns to the problem exactly as it was.
+const normText = (t) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 function openUnitSheet(id, from) {
-  document.getElementById("usheet")?.remove();
+  closeUnitSheet();
   const sheet = h(`<div class="sheet" id="usheet"><div class="sheetcard"><button class="ghost sheetclose" aria-label="Sulge">✕</button><div class="sheetbody"></div></div></div>`);
-  const show = (uid, f) => {
-    const u = unitById(uid), body = sheet.querySelector(".sheetbody");
-    body.innerHTML = unitHtml(u, f);
-    fillUnit(body, u);
-    body.querySelectorAll("[data-uref]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); show(a.dataset.uref); body.scrollTop = 0; }));
+  const body = sheet.querySelector(".sheetbody");
+  let query = "";
+  const list = () => {
+    body.innerHTML = `<h2 class="unithead">Ühikud</h2>
+      <input id="usheetq" type="search" placeholder="Otsi: W, rõhk, kWh…" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(query)}">
+      <div class="ulist"></div>`;
+    const $q = body.querySelector("#usheetq"), $l = body.querySelector(".ulist");
+    const render = () => {
+      query = $q.value;
+      const t = normText(query.trim());
+      const hits = META.units.filter((u) => !t || [u.sym, u.name, u.qty, ...Object.keys(u.aliases)].some((x) => normText(x).includes(t)));
+      $l.innerHTML = hits.map((u) => `<button type="button" class="urow" data-uid="${u.id}"><span class="unitsym">${esc(u.sym)}</span><span class="muted">${esc(u.name)} · ${esc(u.qty)}</span></button>`).join("")
+        || `<p class="muted">Sellist ühikut ei leidnud.</p>`;
+      $l.querySelectorAll("[data-uid]").forEach((b) => (b.onclick = () => entry(b.dataset.uid)));
+    };
+    $q.oninput = render;
+    render();
   };
-  sheet.onclick = (e) => { if (e.target === sheet) sheet.remove(); };
-  sheet.querySelector(".sheetclose").onclick = () => sheet.remove();
+  const entry = (uid, f) => {
+    const u = unitById(uid);
+    body.innerHTML = `<button type="button" class="ghost uback">← Kõik ühikud</button>` + unitHtml(u, f);
+    fillUnit(body, u);
+    body.querySelector(".uback").onclick = () => { list(); body.scrollTop = 0; };
+    body.querySelectorAll("[data-uref]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); entry(a.dataset.uref); body.scrollTop = 0; }));
+  };
+  sheet.onclick = (e) => { if (e.target === sheet) closeUnitSheet(); };
+  sheet.querySelector(".sheetclose").onclick = closeUnitSheet;
   document.body.append(sheet);
-  show(id, from);
+  document.body.classList.add("sheet-open");
+  id ? entry(id, from) : list();
 }
+function closeUnitSheet() {
+  document.getElementById("usheet")?.remove();
+  document.body.classList.remove("sheet-open");
+}
+addEventListener("keydown", (e) => { if (e.key === "Escape") closeUnitSheet(); });
+const UNITS_BTN = `<button type="button" class="soft unitsbtn" data-units>📏 Ühikud</button>`;
+function wireUnitsBtn() { document.querySelectorAll("[data-units]").forEach((b) => (b.onclick = () => openUnitSheet())); }
 
 // ------------------------------------------------------------ free chat
 function viewAsk() {
