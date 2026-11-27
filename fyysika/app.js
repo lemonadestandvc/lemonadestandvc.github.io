@@ -83,6 +83,9 @@ function masks(streak) {
   for (let i = 0; i < 7; i++) out += `<svg viewBox="0 0 16 18" class="${i < on ? "on" : "off"}">${MASK}</svg>`;
   return `<div class="masks" aria-label="${streak} päeva järjest">${out}${streak >= 7 ? `<span class="small" style="color:var(--gold);margin-left:4px">×${Math.floor(streak / 7)} nädalat</span>` : ""}</div>`;
 }
+// Server timestamps are UTC ('YYYY-MM-DD HH:MM:SS'); show them in Tallinn time.
+const fmtStamp = (t) => t ? new Date(t.replace(" ", "T") + "Z").toLocaleString("et-EE", { timeZone: "Europe/Tallinn", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+const tallinnDay = (n = 0) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Tallinn" }).format(Date.now() + n * 86400e3);
 const daysTo = (d) => Math.ceil((new Date(d + "T09:00:00+02:00") - Date.now()) / 86400e3);
 
 // ------------------------------------------------------------ study time
@@ -667,7 +670,7 @@ async function viewParent() {
     const sm = s.summary;
     const days = [];
     for (let i = 13; i >= 0; i--) {
-      const d = new Date(Date.now() + 2 * 3600e3 - i * 86400e3).toISOString().slice(0, 10);
+      const d = tallinnDay(-i);
       const m = Math.round((sm.days[d] || 0) / 60);
       days.push(`<i class="${m >= s.daily_goal_min ? "goal" : ""}" title="${d}: ${m} min" style="height:${Math.min(100, (m / Math.max(s.daily_goal_min, 1)) * 100)}%"></i>`);
     }
@@ -689,12 +692,12 @@ async function viewParent() {
     <div class="card"><h3>Viimased ülesanded</h3>${s.recent.length ? `<table><tr><th>Ül.</th><th>Tase</th><th>Tulemus</th><th>Aeg</th></tr>${s.recent.map((r) => `
       <tr><td>${esc(r.qid)}</td><td>${r.level ?? ""}</td><td>${r.outcome === "wrong" ? "❌ tasemetest" : r.outcome === "correct" ? (r.tries === 1 && !r.hints ? "✅ puhtalt" : `✅ ${r.tries}. katse${r.hints ? ", " + r.hints + " vihjet" : ""}`) : "👀 vaatas lahendust"}</td><td>${Math.round(r.seconds / 60)} min</td></tr>`).join("")}</table>` : `<p class="muted">Veel pole midagi lahendatud.</p>`}</div>
     <div class="card"><h3>Pildistatud lahendused</h3>${s.solutions.length ? s.solutions.map((x) => `
-      <details class="sol"><summary><b>${esc(x.qid)}: ${x.score}/10</b> ${x.final_correct ? "✓" : "✗"} <span class="muted small">${esc(x.created_at.slice(5, 16))}</span><br><span class="small">${esc(x.summary)}</span></summary>
+      <details class="sol"><summary><b>${esc(x.qid)}: ${x.score}/10</b> ${x.final_correct ? "✓" : "✗"} <span class="muted small">${esc(fmtStamp(x.created_at))}</span><br><span class="small">${esc(x.summary)}</span></summary>
         <div class="thumbs">${x.photos.map((k) => `<a data-photo-key="${esc(k)}" href="#"><img alt="Lahenduse foto"></a>`).join("")}</div>
         <ul class="steps small">${(x.steps || []).map((st) => `<li class="${st.ok ? "ok" : "no"}">${esc(st.text)}</li>`).join("")}</ul>
         ${x.next_step ? `<p class="small"><b>Soovitus:</b> ${esc(x.next_step)}</p>` : ""}
       </details>`).join("") : `<p class="muted">Veel pole ühtegi lahendust pildistatud.</p>`}</div>
-    <div class="card"><h3>Mida ta õpetajalt küsis</h3>${s.chats.length ? s.chats.map((c) => `<p class="small"><span class="muted">${esc(c.created_at.slice(5, 16))}</span> ${esc(c.content.slice(0, 160))}</p>`).join("") : `<p class="muted">Veel küsimusi pole.</p>`}</div>`;
+    <div class="card"><h3>Mida ta õpetajalt küsis</h3>${s.chats.length ? s.chats.map((c) => `<p class="small"><span class="muted">${esc(fmtStamp(c.created_at))}</span> ${esc(c.content.slice(0, 160))}</p>`).join("") : `<p class="muted">Veel küsimusi pole.</p>`}</div>`;
   }).join("") + `
     <h2>Seaded</h2>
     <div class="card">
